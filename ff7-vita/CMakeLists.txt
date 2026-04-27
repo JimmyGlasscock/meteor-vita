@@ -43,7 +43,11 @@ else()
 endif()
 
 set(valid_dump_formats GLSL CG)
-option(DUMP_COMPILED_SHADERS "When using GLSL or CG shader format, cache compiled shaders on disk" ON)
+# DUMP_COMPILED_SHADERS is OFF for now: gl_preload() uses VGL_MODE_POSTPONED,
+# which defers compilation to glLinkProgram time, so vglGetShaderBinary called
+# from glCompileShader has nothing to extract and crashes. Re-enable once the
+# cache hook is moved into glLinkProgram_soloader.
+option(DUMP_COMPILED_SHADERS "When using GLSL or CG shader format, cache compiled shaders on disk" OFF)
 if (DUMP_COMPILED_SHADERS)
   if (SHADER_FORMAT IN_LIST valid_dump_formats)
     add_definitions(-DDUMP_COMPILED_SHADERS)
@@ -97,6 +101,7 @@ add_executable(${CMAKE_PROJECT_NAME}
                source/utils/glutil.c
                source/utils/init.c
                source/utils/logger.c
+               source/utils/path_translate.c
                source/utils/settings.c
                source/utils/utils.c
                lib/falso_jni/FalsoJNI.c

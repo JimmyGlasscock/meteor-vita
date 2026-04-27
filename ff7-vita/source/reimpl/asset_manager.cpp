@@ -1,6 +1,7 @@
 #include "reimpl/asset_manager.h"
 #include "utils/logger.h"
 #include "utils/ff7_boot_log.h"
+#include "utils/path_translate.h"
 
 #include <pthread.h>
 #include <malloc.h>
@@ -39,12 +40,15 @@ AAssetManager * AAssetManager_create() {
 }
 
 AAsset* AAssetManager_open(AAssetManager* mgr, const char* filename, int mode) {
-    std::string realp = std::string(DATA_PATH) + std::string("assets/") + std::string(filename);
+    char translated[512];
+    bool routed_to_data_root = path_translate_asset(filename, translated, sizeof(translated));
+    std::string realp(translated);
 
     auto * a = new aAsset;
     a->filename = (char *) malloc(realp.length() + 1);
     strcpy(a->filename, realp.c_str());
     a->bytesRead = 0;
+    (void)routed_to_data_root; // logged below as part of the open result
 
 #ifdef USE_SCELIBC_IO
     a->f = sceLibcBridge_fopen((const char *)a->filename, "r");
@@ -69,8 +73,8 @@ AAsset* AAssetManager_open(AAssetManager* mgr, const char* filename, int mode) {
         fseek(a->f, 0, SEEK_SET);
 #endif
         a->opened = true;
-        ff7_boot_log("[asset] AAssetManager_open(\"%s\", %d) -> %zu bytes",
-                     realp.c_str(), mode, a->fileSize);
+        ff7_boot_log("[asset] AAssetManager_open(\"%s\", %d) -> %u bytes",
+                     realp.c_str(), mode, (unsigned)a->fileSize);
     }
 
     l_debug("AAssetManager_open<%p>(%p, %s, %i): %p", __builtin_return_address(0), mgr, realp.c_str(), mode, a);
@@ -107,11 +111,19 @@ int AAsset_read(AAsset* asset, void* buf, size_t count) {
         return -1;
     }
 
+    bool first_read = (a->bytesRead == 0);
+
 #ifdef USE_SCELIBC_IO
     size_t ret = sceLibcBridge_fread(buf, 1, count, a->f);
 #else
     size_t ret = fread(buf, 1, count, a->f);
 #endif
+
+    if (first_read) {
+        ff7_boot_log("[asset] AAsset_read(\"%s\", count=%u) -> %u bytes",
+                     a->filename ? a->filename : "(null)",
+                     (unsigned)count, (unsigned)ret);
+    }
 
     if (ret > 0) {
         a->bytesRead += ret;

@@ -22,6 +22,7 @@
 
 #include <psp2/appmgr.h>
 #include <psp2/apputil.h>
+#include <psp2/io/stat.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/power.h>
 
@@ -64,6 +65,15 @@ static void soloader_verify_data_layout(void) {
                     "(See FF7-Data-Layout.md.)", assets_root);
     }
     l_success("assets/ directory found.");
+
+    // gxp/ and glsl/ are writable scratch dirs for shader dumping
+    // (DUMP_COMPILED_SHADERS) and untranslated-shader fallbacks. Plain
+    // sceIo mkdir is enough; mode flags are interpreted by the kernel.
+    char scratch[384];
+    snprintf(scratch, sizeof(scratch), "%sgxp", DATA_PATH);
+    sceIoMkdir(scratch, 0777);
+    snprintf(scratch, sizeof(scratch), "%sglsl", DATA_PATH);
+    sceIoMkdir(scratch, 0777);
 }
 
 void soloader_init_all() {

@@ -42,6 +42,7 @@
 #include <falso_jni/FalsoJNI_Logger.h>
 
 #include "utils/ff7_boot_log.h"
+#include "utils/path_translate.h"
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -83,42 +84,11 @@ static const char *jstr_cstr(jstring str) {
  *                                "/ff7_1.02/save/savefile.dat"
  *   - Already-Vita absolutes e.g. "ux0:data/ff7/foo" (defensive)
  *
- * Normalisation rules, applied in order:
- *   1. Backslashes -> forward slashes.
- *   2. If the result already contains a Vita device prefix (`:`), use as-is.
- *   3. Strip a leading "/ff7_1.02/" (the OBB zip's internal root). Users
- *      extract the OBB into ux0:data/ff7/ so the entries naturally land
- *      under ux0:data/ff7/data/, ux0:data/ff7/save/, etc.
- *   4. Strip any remaining leading slash so DATA_PATH (which already has a
- *      trailing /) doesn't produce a double slash.
- *   5. Prepend DATA_PATH.
+ * The actual normalisation lives in utils/path_translate so that asset_manager
+ * and io.c can apply the same rules.
  */
 static void translate_asset_path(const char *in, char *out, size_t out_sz) {
-    if (!in || !*in) {
-        snprintf(out, out_sz, "%s", DATA_PATH);
-        return;
-    }
-
-    char tmp[512];
-    snprintf(tmp, sizeof(tmp), "%s", in);
-    for (char *p = tmp; *p; ++p) {
-        if (*p == '\\') *p = '/';
-    }
-
-    if (strchr(tmp, ':')) {
-        snprintf(out, out_sz, "%s", tmp);
-        return;
-    }
-
-    const char *p = tmp;
-    static const char obb_root[] = "/ff7_1.02/";
-    if (strncmp(p, obb_root, sizeof(obb_root) - 1) == 0) {
-        p += sizeof(obb_root) - 1;
-    } else {
-        while (*p == '/') ++p;
-    }
-
-    snprintf(out, out_sz, "%s%s", DATA_PATH, p);
+    path_translate_data(in, out, out_sz);
 }
 
 /* ------------------------------------------------------------------ */

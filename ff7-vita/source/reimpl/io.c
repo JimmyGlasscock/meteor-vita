@@ -24,6 +24,7 @@
 #include "utils/logger.h"
 #include "utils/utils.h"
 #include "utils/ff7_boot_log.h"
+#include "utils/path_translate.h"
 
 // Includes the following inline utilities:
 // int oflags_musl_to_newlib(int flags);
@@ -38,17 +39,21 @@ FILE * fopen_soloader(const char * filename, const char * mode) {
         return fopen_soloader("app0:/meminfo", mode);
     }
 
+    char translated[512];
+    path_translate_data(filename, translated, sizeof(translated));
+
 #ifdef USE_SCELIBC_IO
-    FILE* ret = sceLibcBridge_fopen(filename, mode);
+    FILE* ret = sceLibcBridge_fopen(translated, mode);
 #else
-    FILE* ret = fopen(filename, mode);
+    FILE* ret = fopen(translated, mode);
 #endif
 
     if (ret) {
-        l_debug("fopen(%s, %s): %p", filename, mode, ret);
+        l_debug("fopen(%s -> %s, %s): %p", filename, translated, mode, ret);
     } else {
-        l_warn("fopen(%s, %s): %p", filename, mode, ret);
-        ff7_boot_log("[io] fopen(\"%s\", \"%s\") -> MISSING", filename, mode);
+        l_warn("fopen(%s -> %s, %s): %p", filename, translated, mode, ret);
+        ff7_boot_log("[io] fopen(\"%s\" -> \"%s\", \"%s\") -> MISSING",
+                     filename, translated, mode);
     }
 
     return ret;
@@ -72,13 +77,17 @@ int open_soloader(const char * path, int oflag, ...) {
         va_end(args);
     }
 
+    char translated[512];
+    path_translate_data(path, translated, sizeof(translated));
+
     oflag = oflags_bionic_to_newlib(oflag);
-    int ret = open(path, oflag, mode);
+    int ret = open(translated, oflag, mode);
     if (ret >= 0) {
-        l_debug("open(%s, %x): %i", path, oflag, ret);
+        l_debug("open(%s -> %s, %x): %i", path, translated, oflag, ret);
     } else {
-        l_warn("open(%s, %x): %i", path, oflag, ret);
-        ff7_boot_log("[io] open(\"%s\", 0x%x) -> MISSING", path, oflag);
+        l_warn("open(%s -> %s, %x): %i", path, translated, oflag, ret);
+        ff7_boot_log("[io] open(\"%s\" -> \"%s\", 0x%x) -> MISSING",
+                     path, translated, oflag);
     }
     return ret;
 }
@@ -100,15 +109,18 @@ int stat_soloader(const char * path, stat64_bionic * buf) {
         return 0;
     }
 
+    char translated[512];
+    path_translate_data(path, translated, sizeof(translated));
+
     struct stat st;
-    int res = stat(path, &st);
+    int res = stat(translated, &st);
 
     if (res == 0) {
         stat_newlib_to_bionic(&st, buf);
-        l_debug("stat(%s): %i", path, res);
+        l_debug("stat(%s -> %s): %i", path, translated, res);
     } else {
-        l_warn("stat(%s): %i", path, res);
-        ff7_boot_log("[io] stat(\"%s\") -> MISSING", path);
+        l_warn("stat(%s -> %s): %i", path, translated, res);
+        ff7_boot_log("[io] stat(\"%s\" -> \"%s\") -> MISSING", path, translated);
     }
     return res;
 }

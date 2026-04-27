@@ -670,7 +670,7 @@ so_default_dynlib default_dynlib[] = {
         { "glLightxv", (uintptr_t)&glLightxv },
         { "glLineWidth", (uintptr_t)&glLineWidth },
         { "glLineWidthx", (uintptr_t)&glLineWidthx },
-        { "glLinkProgram", (uintptr_t)&glLinkProgram },
+        { "glLinkProgram", (uintptr_t)&glLinkProgram_soloader },
         { "glLoadIdentity", (uintptr_t)&glLoadIdentity },
         { "glLoadMatrixf", (uintptr_t)&glLoadMatrixf },
         { "glLoadMatrixx", (uintptr_t)&glLoadMatrixx },

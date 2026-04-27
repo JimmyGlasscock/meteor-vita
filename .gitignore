@@ -1,0 +1,26 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.obj
+*.elf
+*.self
+*.vpk
+*.suprx
+*.skprx
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Large Android/game data inputs
+*.apk
+*.obb
+staging/

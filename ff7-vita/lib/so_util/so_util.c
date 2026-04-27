@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "utils/dialog.h"
+#include "utils/ff7_boot_log.h"
 #include "so_util.h"
 
 #ifndef SCE_KERNEL_MEMBLOCK_TYPE_USER_RX
@@ -525,8 +526,12 @@ int so_resolve_with_dummy(so_module *mod, so_default_dynlib *default_dynlib, int
 
 void so_initialize(so_module *mod) {
     for (int i = 0; i < mod->num_init_array; i++) {
-        if (mod->init_array[i] && (int)mod->init_array[i] != -1)
+        if (mod->init_array[i] && (int)mod->init_array[i] != -1) {
+            ff7_boot_log("init_array[%d] call %p", i,
+                         (void *)(uintptr_t)mod->init_array[i]);
             mod->init_array[i]();
+            ff7_boot_log("init_array[%d] returned", i);
+        }
     }
 }
 

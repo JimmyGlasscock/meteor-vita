@@ -93,6 +93,7 @@ add_executable(${CMAKE_PROJECT_NAME}
                source/reimpl/time64.c
                source/reimpl/asset_manager.cpp
                source/utils/dialog.c
+               source/utils/ff7_boot_log.c
                source/utils/glutil.c
                source/utils/init.c
                source/utils/logger.c

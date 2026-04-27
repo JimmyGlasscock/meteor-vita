@@ -17,11 +17,16 @@
 
 #include <vitaGL.h>
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void gl_init();
+
+/** Returns true if libshacccg.suprx is present (VitaGL shader compiler). */
+bool libshacccg_installed(void);
 
 void gl_preload();
 

@@ -32,9 +32,13 @@ The `ff7-vita/` tree is based on [soloader-boilerplate](https://github.com/v-ata
 
 **Goal:** Reproducible installs with no missing-component dialogs.
 
+**Working doc:** [FF7-Data-Layout.md](./FF7-Data-Layout.md) — kubridge / ShaRKBR33D checklist, `DATA_PATH`/`SO_PATH`, and `ux0:data/ff7/` tree (`libjni_ff7.so`, `assets/`, shader caches, optional `config.txt`).
+
+**Implemented in repo:** `soloader_verify_data_layout()` in [`ff7-vita/source/utils/init.c`](ff7-vita/source/utils/init.c); `libshacccg_installed()` in [`ff7-vita/source/utils/glutil.c`](ff7-vita/source/utils/glutil.c).
+
 - Confirm kubridge loads before the homebrew runs.
 - Confirm ShaRKBR33G / libshacccg is present.
-- Document the exact **`ux0:data/ff7/`** (or configured `DATA_PATH`) tree: `.so`, OBB extraction paths, any extra files.
+- Follow the documented **`ux0:data/ff7/`** (or configured `DATA_PATH`) tree: `.so`, APK `assets/` mirror, OBB placement notes.
 
 **Done when:** Every deploy uses the same layout; loader does not stop on kubridge / shaCCG / missing `.so`.
 

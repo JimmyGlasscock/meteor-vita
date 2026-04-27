@@ -10,6 +10,7 @@
 #include "utils/init.h"
 
 #include "utils/dialog.h"
+#include "utils/ff7_boot_log.h"
 #include "utils/glutil.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
@@ -24,6 +25,8 @@
 #include <psp2/kernel/clib.h>
 #include <psp2/power.h>
 
+#include <stdio.h>
+
 #include <falso_jni/FalsoJNI.h>
 #include <so_util/so_util.h>
 #include <fios/fios.h>
@@ -33,7 +36,39 @@
 
 extern so_module so_mod;
 
+/** Phase 1: kubridge / shaCCG / DATA_PATH layout (see FF7-Data-Layout.md). */
+static void soloader_verify_data_layout(void) {
+    char assets_root[384];
+
+    if (!libshacccg_installed()) {
+        l_fatal("libshacccg.suprx not found.");
+        fatal_error("Error: libshacccg.suprx is not installed. "
+                    "Install via ShaRKBR33D (see FF7-Data-Layout.md).");
+    }
+    l_success("libshacccg check passed.");
+
+    sceClibPrintf("[ff7-vita] DATA_PATH=%s\n", DATA_PATH);
+    sceClibPrintf("[ff7-vita] SO_PATH=%s\n", SO_PATH);
+
+    if (!is_dir(DATA_PATH)) {
+        l_fatal("DATA_PATH is missing or not a directory.");
+        fatal_error("Create the data folder and copy game files:\n%s\n"
+                    "(See FF7-Data-Layout.md.)", DATA_PATH);
+    }
+    l_success("DATA_PATH exists.");
+
+    snprintf(assets_root, sizeof(assets_root), "%sassets", DATA_PATH);
+    if (!is_dir(assets_root)) {
+        l_fatal("APK assets directory missing.");
+        fatal_error("Copy the Android APK assets/ tree to:\n%s/\n"
+                    "(See FF7-Data-Layout.md.)", assets_root);
+    }
+    l_success("assets/ directory found.");
+}
+
 void soloader_init_all() {
+    ff7_boot_log("soloader_init_all: start");
+
 	// Launch `app0:configurator.bin` on `-config` init param
     sceAppUtilInit(&(SceAppUtilInitParam){}, &(SceAppUtilBootParam){});
     SceAppUtilAppEventParam eventParam;
@@ -62,6 +97,10 @@ void soloader_init_all() {
         fatal_error("Error: kubridge.skprx is not installed.");
     }
     l_success("kubridge check passed.");
+    ff7_boot_log("kubridge ok");
+
+    soloader_verify_data_layout();
+    ff7_boot_log("data layout / shaCCG / assets ok");
 
     if (!file_exists(SO_PATH)) {
         fatal_error("Looks like you haven't installed the data files for this "
@@ -73,6 +112,7 @@ void soloader_init_all() {
         l_fatal("SO could not be loaded.");
         fatal_error("Error: could not load %s.", SO_PATH);
     }
+    ff7_boot_log("so_file_load ok");
 
     settings_load();
     l_success("Settings loaded.");
@@ -82,22 +122,35 @@ void soloader_init_all() {
 
     resolve_imports(&so_mod);
     l_success("SO imports resolved.");
+    ff7_boot_log("resolve_imports ok");
 
+    ff7_boot_log("so_patch: start");
     so_patch();
     l_success("SO patched.");
+    ff7_boot_log("so_patch ok");
 
+    ff7_boot_log("so_flush_caches: start");
     so_flush_caches(&so_mod);
     l_success("SO caches flushed.");
+    ff7_boot_log("so_flush_caches ok");
 
+    ff7_boot_log("so_initialize: start");
     so_initialize(&so_mod);
     l_success("SO initialized.");
+    ff7_boot_log("so_initialize ok");
 
+    ff7_boot_log("gl_preload: start");
     gl_preload();
     l_success("OpenGL preloaded.");
+    ff7_boot_log("gl_preload ok");
 
+    ff7_boot_log("jni_init: start");
     jni_init();
     l_success("FalsoJNI initialized.");
+    ff7_boot_log("jni_init ok");
 
     controls_init();
     l_success("Controls initialized.");
+
+    ff7_boot_log("soloader_init_all done");
 }

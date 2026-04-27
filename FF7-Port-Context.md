@@ -2,7 +2,7 @@
 
 ## Project Context File
 
-See also: [FF7-Port-Plan.md](./FF7-Port-Plan.md) (phased port plan after build + data are in place).
+See also: [FF7-Port-Plan.md](./FF7-Port-Plan.md) (phased port plan after build + data are in place), [FF7-Data-Layout.md](./FF7-Data-Layout.md) (Phase 1 Vita paths and checklist).
 
 ---
 

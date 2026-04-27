@@ -2,6 +2,8 @@
 
 ## Project Context File
 
+See also: [FF7-Port-Plan.md](./FF7-Port-Plan.md) (phased port plan after build + data are in place).
+
 ---
 
 ## 1. Objective

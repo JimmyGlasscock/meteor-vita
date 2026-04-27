@@ -54,6 +54,13 @@ EGLBoolean eglTerminate(EGLDisplay dpy);
 
 EGLContext eglGetCurrentContext (void);
 
+EGLDisplay eglGetCurrentDisplay (void);
+
+EGLSurface eglGetCurrentSurface (EGLint readdraw);
+
+EGLBoolean eglSurfaceAttrib(EGLDisplay dpy, EGLSurface surface,
+                            EGLint attribute, EGLint value);
+
 EGLBoolean eglGetConfigs(EGLDisplay display, EGLConfig * configs,
                          EGLint config_size, EGLint * num_config);
 

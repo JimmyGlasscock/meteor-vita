@@ -209,3 +209,27 @@ int AAsset_openFileDescriptor(AAsset* asset, off_t* outStart, off_t* outLength) 
     l_debug("AAsset_openFileDescriptor(%p/\"%s\", %p, %p): ret %i", asset, a->filename, outStart, outLength, ret);
     return ret;
 }
+
+int AAsset_openFileDescriptor64(AAsset* asset, int64_t* outStart,
+                                int64_t* outLength) {
+    if (!asset) {
+        l_warn("AAsset_openFileDescriptor64(%p, %p, %p): asset is null",
+               asset, outStart, outLength);
+        return -1;
+    }
+    auto * a = (aAsset *) asset;
+    if (outStart) *outStart = 0;
+    if (outLength) *outLength = (int64_t) a->fileSize;
+    if (a->opened) {
+#ifdef USE_SCELIBC_IO
+        sceLibcBridge_fclose(a->f);
+#else
+        fclose(a->f);
+#endif
+        a->opened = false;
+    }
+    int ret = open(a->filename, O_RDONLY);
+    l_debug("AAsset_openFileDescriptor64(%p/\"%s\", %p, %p): ret %i",
+            asset, a->filename, outStart, outLength, ret);
+    return ret;
+}

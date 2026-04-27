@@ -32,8 +32,8 @@ int main() {
     }
 
     ff7_boot_log("calling JNI_OnLoad");
-    JNI_OnLoad(&jvm);
-    ff7_boot_log("JNI_OnLoad returned");
+    int jni_rc = JNI_OnLoad(&jvm);
+    ff7_boot_log("JNI_OnLoad returned: 0x%x", jni_rc);
 
     ff7_boot_log("calling gl_init");
     gl_init();

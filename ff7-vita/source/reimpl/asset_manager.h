@@ -3,6 +3,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,6 +134,15 @@ off_t AAsset_getLength(AAsset* asset);
  * compressed).
  */
 int AAsset_openFileDescriptor(AAsset* asset, off_t* outStart, off_t* outLength);
+
+/**
+ * Open a new file descriptor that can be used to read the asset data.
+ *
+ * Returns < 0 if direct fd access is not possible (for example, if the asset is
+ * compressed).
+ */
+int AAsset_openFileDescriptor64(AAsset* asset, int64_t* outStart,
+                                int64_t* outLength);
 
 #ifdef __cplusplus
 };

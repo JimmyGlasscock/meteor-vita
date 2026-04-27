@@ -39,6 +39,7 @@
 #include "utils/glutil.h"
 #include "utils/utils.h"
 #include "utils/logger.h"
+#include "utils/ff7_boot_log.h"
 
 #ifdef USE_SCELIBC_IO
 #include <libc_bridge/libc_bridge.h>
@@ -249,6 +250,7 @@ so_default_dynlib default_dynlib[] = {
         { "AAsset_read", (uintptr_t)&AAsset_read },
         { "AAsset_seek", (uintptr_t)&AAsset_seek },
         { "AAsset_openFileDescriptor", (uintptr_t)&AAsset_openFileDescriptor },
+        { "AAsset_openFileDescriptor64", (uintptr_t)&AAsset_openFileDescriptor64 },
         { "AAssetDir_close", (uintptr_t)&AAssetDir_close },
         { "AAssetDir_getNextFileName", (uintptr_t)&AAssetDir_getNextFileName },
         { "AAssetManager_fromJava", (uintptr_t)&ret1 },
@@ -296,6 +298,8 @@ so_default_dynlib default_dynlib[] = {
         { "modf", (uintptr_t)&modf },
         { "pow", (uintptr_t)&pow },
         { "powf", (uintptr_t)&powf },
+        { "remainder", (uintptr_t)&remainder },
+        { "remainderf", (uintptr_t)&remainderf },
         { "rint", (uintptr_t)&rint },
         { "rintf", (uintptr_t)&rintf },
         { "round", (uintptr_t)&round },
@@ -500,6 +504,8 @@ so_default_dynlib default_dynlib[] = {
         { "eglGetConfigAttrib", (uintptr_t)&eglGetConfigAttrib },
         { "eglGetConfigs", (uintptr_t)&eglGetConfigs },
         { "eglGetCurrentContext", (uintptr_t)&eglGetCurrentContext },
+        { "eglGetCurrentDisplay", (uintptr_t)&eglGetCurrentDisplay },
+        { "eglGetCurrentSurface", (uintptr_t)&eglGetCurrentSurface },
         { "eglGetDisplay", (uintptr_t)&eglGetDisplay },
         { "eglGetError", (uintptr_t)&eglGetError },
         { "eglGetProcAddress", (uintptr_t)&eglGetProcAddress },
@@ -508,6 +514,7 @@ so_default_dynlib default_dynlib[] = {
         { "eglQueryContext", (uintptr_t)&eglQueryContext },
         { "eglQueryString", (uintptr_t)&eglQueryString },
         { "eglQuerySurface", (uintptr_t)&eglQuerySurface },
+        { "eglSurfaceAttrib", (uintptr_t)&eglSurfaceAttrib },
         { "eglSwapBuffers", (uintptr_t)&eglSwapBuffers },
         { "eglTerminate", (uintptr_t)&eglTerminate },
 
@@ -771,13 +778,54 @@ so_default_dynlib default_dynlib[] = {
 
 
         // OpenSLES
-        { "SL_IID_ENGINE", (uintptr_t)&SL_IID_ENGINE },
+        { "SL_IID_3DCOMMIT", (uintptr_t)&SL_IID_3DCOMMIT },
+        { "SL_IID_3DDOPPLER", (uintptr_t)&SL_IID_3DDOPPLER },
+        { "SL_IID_3DGROUPING", (uintptr_t)&SL_IID_3DGROUPING },
+        { "SL_IID_3DLOCATION", (uintptr_t)&SL_IID_3DLOCATION },
+        { "SL_IID_3DMACROSCOPIC", (uintptr_t)&SL_IID_3DMACROSCOPIC },
+        { "SL_IID_3DSOURCE", (uintptr_t)&SL_IID_3DSOURCE },
+        { "SL_IID_ANDROIDCONFIGURATION", (uintptr_t)&SL_IID_ANDROIDCONFIGURATION },
+        { "SL_IID_ANDROIDEFFECT", (uintptr_t)&SL_IID_ANDROIDEFFECT },
+        { "SL_IID_ANDROIDEFFECTCAPABILITIES", (uintptr_t)&SL_IID_ANDROIDEFFECTCAPABILITIES },
+        { "SL_IID_ANDROIDEFFECTSEND", (uintptr_t)&SL_IID_ANDROIDEFFECTSEND },
         { "SL_IID_ANDROIDSIMPLEBUFFERQUEUE", (uintptr_t)&SL_IID_ANDROIDSIMPLEBUFFERQUEUE },
+        { "SL_IID_AUDIODECODERCAPABILITIES", (uintptr_t)&SL_IID_AUDIODECODERCAPABILITIES },
+        { "SL_IID_AUDIOENCODER", (uintptr_t)&SL_IID_AUDIOENCODER },
+        { "SL_IID_AUDIOENCODERCAPABILITIES", (uintptr_t)&SL_IID_AUDIOENCODERCAPABILITIES },
+        { "SL_IID_AUDIOIODEVICECAPABILITIES", (uintptr_t)&SL_IID_AUDIOIODEVICECAPABILITIES },
+        { "SL_IID_BASSBOOST", (uintptr_t)&SL_IID_BASSBOOST },
         { "SL_IID_BUFFERQUEUE", (uintptr_t)&SL_IID_BUFFERQUEUE },
+        { "SL_IID_DEVICEVOLUME", (uintptr_t)&SL_IID_DEVICEVOLUME },
+        { "SL_IID_DYNAMICINTERFACEMANAGEMENT", (uintptr_t)&SL_IID_DYNAMICINTERFACEMANAGEMENT },
+        { "SL_IID_DYNAMICSOURCE", (uintptr_t)&SL_IID_DYNAMICSOURCE },
+        { "SL_IID_EFFECTSEND", (uintptr_t)&SL_IID_EFFECTSEND },
+        { "SL_IID_ENGINE", (uintptr_t)&SL_IID_ENGINE },
+        { "SL_IID_ENGINECAPABILITIES", (uintptr_t)&SL_IID_ENGINECAPABILITIES },
+        { "SL_IID_ENVIRONMENTALREVERB", (uintptr_t)&SL_IID_ENVIRONMENTALREVERB },
+        { "SL_IID_EQUALIZER", (uintptr_t)&SL_IID_EQUALIZER },
+        { "SL_IID_LED", (uintptr_t)&SL_IID_LED },
         { "SL_IID_METADATAEXTRACTION", (uintptr_t)&SL_IID_METADATAEXTRACTION },
+        { "SL_IID_METADATATRAVERSAL", (uintptr_t)&SL_IID_METADATATRAVERSAL },
+        { "SL_IID_MIDIMESSAGE", (uintptr_t)&SL_IID_MIDIMESSAGE },
+        { "SL_IID_MIDIMUTESOLO", (uintptr_t)&SL_IID_MIDIMUTESOLO },
+        { "SL_IID_MIDITEMPO", (uintptr_t)&SL_IID_MIDITEMPO },
+        { "SL_IID_MIDITIME", (uintptr_t)&SL_IID_MIDITIME },
+        { "SL_IID_MUTESOLO", (uintptr_t)&SL_IID_MUTESOLO },
+        { "SL_IID_NULL", (uintptr_t)&SL_IID_NULL },
+        { "SL_IID_OBJECT", (uintptr_t)&SL_IID_OBJECT },
+        { "SL_IID_OUTPUTMIX", (uintptr_t)&SL_IID_OUTPUTMIX },
+        { "SL_IID_PITCH", (uintptr_t)&SL_IID_PITCH },
         { "SL_IID_PLAY", (uintptr_t)&SL_IID_PLAY },
+        { "SL_IID_PLAYBACKRATE", (uintptr_t)&SL_IID_PLAYBACKRATE },
         { "SL_IID_PREFETCHSTATUS", (uintptr_t)&SL_IID_PREFETCHSTATUS },
+        { "SL_IID_PRESETREVERB", (uintptr_t)&SL_IID_PRESETREVERB },
+        { "SL_IID_RATEPITCH", (uintptr_t)&SL_IID_RATEPITCH },
+        { "SL_IID_RECORD", (uintptr_t)&SL_IID_RECORD },
         { "SL_IID_SEEK", (uintptr_t)&SL_IID_SEEK },
+        { "SL_IID_THREADSYNC", (uintptr_t)&SL_IID_THREADSYNC },
+        { "SL_IID_VIBRA", (uintptr_t)&SL_IID_VIBRA },
+        { "SL_IID_VIRTUALIZER", (uintptr_t)&SL_IID_VIRTUALIZER },
+        { "SL_IID_VISUALIZATION", (uintptr_t)&SL_IID_VISUALIZATION },
         { "SL_IID_VOLUME", (uintptr_t)&SL_IID_VOLUME },
         { "slCreateEngine", (uintptr_t)&slCreateEngine },
 
@@ -1061,10 +1109,44 @@ void *dlsym_soloader(void * handle, const char * symbol) {
     return NULL;
 }
 
+/**
+ * Phase-2 helper: after so_resolve, walk dynsym for any imports we still don't
+ * provide and mirror them to the persistent boot log so we can iterate without
+ * serial logging.
+ */
+static void log_unresolved_imports(so_module *mod) {
+    int unresolved = 0;
+    const int n = (int)(sizeof(default_dynlib) / sizeof(default_dynlib[0]));
+
+    for (int i = 0; i < mod->num_dynsym; i++) {
+        Elf32_Sym *sym = &mod->dynsym[i];
+        if (sym->st_shndx != SHN_UNDEF) continue;
+
+        const char *name = mod->dynstr + sym->st_name;
+        if (!name || !*name) continue;
+
+        int found = 0;
+        for (int j = 0; j < n; j++) {
+            if (strcmp(name, default_dynlib[j].symbol) == 0) {
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found) {
+            unresolved++;
+            ff7_boot_log("unresolved import: %s", name);
+        }
+    }
+
+    ff7_boot_log("resolve_imports: %d unresolved import(s)", unresolved);
+}
+
 void resolve_imports(so_module* mod) {
     __sF_fake[0] = *stdin;
     __sF_fake[1] = *stdout;
     __sF_fake[2] = *stderr;
 
     so_resolve(mod, default_dynlib, sizeof(default_dynlib), 0);
+    log_unresolved_imports(mod);
 }

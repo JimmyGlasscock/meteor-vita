@@ -307,6 +307,26 @@ EGLContext eglGetCurrentContext (void) {
     return strdup("ctx");
 }
 
+EGLDisplay eglGetCurrentDisplay (void) {
+    // EGL_DEFAULT_DISPLAY is what eglGetDisplay typically returns; matches
+    // whatever the .so passed back from eglGetDisplay. A non-null sentinel is
+    // sufficient because we never dereference it.
+    return (EGLDisplay)EGL_DEFAULT_DISPLAY;
+}
+
+EGLSurface eglGetCurrentSurface (EGLint readdraw) {
+    // The .so only uses this opaquely, so a stable non-null sentinel works.
+    return strdup("surface");
+}
+
+EGLBoolean eglSurfaceAttrib(EGLDisplay dpy, EGLSurface surface,
+                            EGLint attribute, EGLint value) {
+    // Surface attribute changes do not map to anything on VitaGL; accept and
+    // pretend it succeeded so callers that gate on EGL_TRUE keep going.
+    (void)dpy; (void)surface; (void)attribute; (void)value;
+    return EGL_TRUE;
+}
+
 char const * eglQueryString(EGLDisplay display, EGLint name) {
     switch (name) {
     case EGL_CLIENT_APIS:

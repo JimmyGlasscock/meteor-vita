@@ -23,6 +23,7 @@
 
 #include "utils/logger.h"
 #include "utils/utils.h"
+#include "utils/ff7_boot_log.h"
 
 // Includes the following inline utilities:
 // int oflags_musl_to_newlib(int flags);
@@ -43,10 +44,12 @@ FILE * fopen_soloader(const char * filename, const char * mode) {
     FILE* ret = fopen(filename, mode);
 #endif
 
-    if (ret)
+    if (ret) {
         l_debug("fopen(%s, %s): %p", filename, mode, ret);
-    else
+    } else {
         l_warn("fopen(%s, %s): %p", filename, mode, ret);
+        ff7_boot_log("[io] fopen(\"%s\", \"%s\") -> MISSING", filename, mode);
+    }
 
     return ret;
 }
@@ -71,10 +74,12 @@ int open_soloader(const char * path, int oflag, ...) {
 
     oflag = oflags_bionic_to_newlib(oflag);
     int ret = open(path, oflag, mode);
-    if (ret >= 0)
+    if (ret >= 0) {
         l_debug("open(%s, %x): %i", path, oflag, ret);
-    else
+    } else {
         l_warn("open(%s, %x): %i", path, oflag, ret);
+        ff7_boot_log("[io] open(\"%s\", 0x%x) -> MISSING", path, oflag);
+    }
     return ret;
 }
 
@@ -98,10 +103,13 @@ int stat_soloader(const char * path, stat64_bionic * buf) {
     struct stat st;
     int res = stat(path, &st);
 
-    if (res == 0)
+    if (res == 0) {
         stat_newlib_to_bionic(&st, buf);
-
-    l_debug("stat(%s): %i", path, res);
+        l_debug("stat(%s): %i", path, res);
+    } else {
+        l_warn("stat(%s): %i", path, res);
+        ff7_boot_log("[io] stat(\"%s\") -> MISSING", path);
+    }
     return res;
 }
 

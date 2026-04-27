@@ -1,5 +1,6 @@
 #include "reimpl/asset_manager.h"
 #include "utils/logger.h"
+#include "utils/ff7_boot_log.h"
 
 #include <pthread.h>
 #include <malloc.h>
@@ -52,6 +53,8 @@ AAsset* AAssetManager_open(AAssetManager* mgr, const char* filename, int mode) {
 #endif
 
     if (!a->f) {
+        ff7_boot_log("[asset] AAssetManager_open(\"%s\", %d) -> MISSING",
+                     realp.c_str(), mode);
         free(a->filename);
         delete a;
         a = nullptr;
@@ -66,6 +69,8 @@ AAsset* AAssetManager_open(AAssetManager* mgr, const char* filename, int mode) {
         fseek(a->f, 0, SEEK_SET);
 #endif
         a->opened = true;
+        ff7_boot_log("[asset] AAssetManager_open(\"%s\", %d) -> %zu bytes",
+                     realp.c_str(), mode, a->fileSize);
     }
 
     l_debug("AAssetManager_open<%p>(%p, %s, %i): %p", __builtin_return_address(0), mgr, realp.c_str(), mode, a);
@@ -206,6 +211,7 @@ int AAsset_openFileDescriptor(AAsset* asset, off_t* outStart, off_t* outLength) 
         a->opened = false;
     }
     int ret = open(a->filename, O_RDONLY);
+    ff7_boot_log("[asset] AAsset_openFileDescriptor(\"%s\") -> fd %d", a->filename, ret);
     l_debug("AAsset_openFileDescriptor(%p/\"%s\", %p, %p): ret %i", asset, a->filename, outStart, outLength, ret);
     return ret;
 }
@@ -229,6 +235,7 @@ int AAsset_openFileDescriptor64(AAsset* asset, int64_t* outStart,
         a->opened = false;
     }
     int ret = open(a->filename, O_RDONLY);
+    ff7_boot_log("[asset] AAsset_openFileDescriptor64(\"%s\") -> fd %d", a->filename, ret);
     l_debug("AAsset_openFileDescriptor64(%p/\"%s\", %p, %p): ret %i",
             asset, a->filename, outStart, outLength, ret);
     return ret;

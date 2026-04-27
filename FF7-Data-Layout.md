@@ -40,7 +40,11 @@ Copy via FTP/USB/VitaShell into **`ux0:data/ff7/`**:
 ux0:data/ff7/
 ├── libjni_ff7.so          ← ARMv7 library from the Android APK (required)
 ├── assets/                ← APK `assets/` mirror (required for AAssetManager)
-│   └── …                  ← same relative paths as inside the APK `assets/` zip entries
+│   ├── Shaders/           ← Shader.fsh / Shader.vsh / Shader_old.vsh / Shader_yuv.fsh
+│   └── button_*.png       ← per-language D-pad / button overlays
+├── data/                  ← OBB `ff7_1.02/data/` extracted (movies, music, .tim, .dat …) [required]
+├── save/                  ← OBB `ff7_1.02/save/` extracted [optional: only if the OBB ships one]
+├── Documents/             ← writable: in-game saves + APP.LOG; create empty folder before first run
 ├── glsl/                  ← optional; created/used when shader dump/cache uses GLSL
 ├── cg/                    ← optional; CG shader cache
 ├── gxp/                   ← optional; GXP shader cache
@@ -60,18 +64,47 @@ ux0:data/ff7/
 
 So anything the game loads via the asset manager must live under **`ux0:data/ff7/assets/`**, with **`filename`** matching the path string the game passes in (same as paths under the APK **`assets/`** directory).
 
-**Setup:** Unzip the APK (or pull the `assets/` tree from it) and copy that whole tree into **`ux0:data/ff7/assets/`**, preserving subfolders.
+**Setup:** Unzip the APK and copy its `assets/` tree into **`ux0:data/ff7/assets/`**, preserving subfolders. The full set the game touches is small:
 
-### 3.3 Expansion OBB (large download)
+- `Shaders/Shader.fsh`, `Shaders/Shader.vsh`, `Shaders/Shader_old.vsh`, `Shaders/Shader_yuv.fsh`
+- `button_jp_en.png`, `button_de.png`, `button_es.png`, `button_fr.png`
 
-Android often ships a separate **OBB** (`.obb`) with most game data. The stock app expects those files under Android storage rules; on Vita you must **extract the OBB** and place files so that:
+### 3.3 Expansion OBB (`ExpansionFile` / native fd)
 
-- Paths accessed through **`AAssetManager`** → under **`ux0:data/ff7/assets/`** as above.
-- Paths that map to **external storage / `Android/obb/...`** on Android may require **different** placement or future **`patch.c`** redirects (handled in later phases when you see missing-file logs).
+Android ships the bulk of FF7 in an **OBB** (`.obb`) zip whose internal root is **`ff7_1.02/`**. The native code never opens those files directly — it asks the Java side for an `AssetFileDescriptor` via `ExpansionFile.OPEN_FILE_DESCRIPTOR(name)` (handled in [`ff7-vita/source/java.c`](ff7-vita/source/java.c)). The names look like:
 
-Until those are patched, document **exactly** which OBB paths you mirrored under `ux0:data/ff7/` when something works or fails—this speeds up Phase 4.
+```
+/ff7_1.02/data/movies/staffroll.avi
+/ff7_1.02/data/music_2/...
+/ff7_1.02/save/savefile.dat
+data\fhuda.tim          ← a few callers omit the OBB root
+data\stage57.dat
+```
 
-### 3.4 Generated / optional paths
+[`translate_asset_path()`](ff7-vita/source/java.c) normalises all of these so the on-disk layout is plain and unnested:
+
+| Native path the `.so` requests | Vita path it resolves to |
+|---|---|
+| `/ff7_1.02/data/movies/X` | `ux0:data/ff7/data/movies/X` |
+| `/ff7_1.02/save/X` | `ux0:data/ff7/save/X` |
+| `data\fhuda.tim` | `ux0:data/ff7/data/fhuda.tim` |
+| `Shaders/Shader.fsh` | `ux0:data/ff7/Shaders/Shader.fsh` (rare; usually via assets) |
+
+**Setup:** Open the FF7 OBB zip (`main.*.jp.co.d4e.materialg.obb`) and extract **the contents of its `ff7_1.02/data/` directory** directly into **`ux0:data/ff7/data/`** — do *not* keep the `ff7_1.02/` parent. Backslash-named entries (e.g. `data\fhuda.tim`) land alongside their forward-slash siblings under `data/`. If the OBB also ships an `ff7_1.02/save/` tree (read-only seed data such as NG+ clears), extract it to `ux0:data/ff7/save/`; otherwise skip it. No other top-level OBB directories are referenced by the native code.
+
+### 3.4 Writable saves and log (`Documents/`)
+
+The `.so` builds save / log paths from the dataPath the Java side hands it via `setDataPath(...)`. The native format strings include `"%s/Documents/%s"` and a literal `"Documents/APP.LOG"`, so it expects **`<dataPath>/Documents/`** to exist and be writable.
+
+[`ff7-vita/source/main.c`](ff7-vita/source/main.c) (Phase 5) calls `setDataPath("ux0:data/ff7")`, which makes the writable directory:
+
+```
+ux0:data/ff7/Documents/    ← create this directory yourself, or it will be auto-created on first save
+```
+
+If it is missing, the boot log will show `[io] fopen("...Documents/APP.LOG", "a") -> MISSING` and saves will silently fail.
+
+### 3.5 Generated / optional paths
 
 | Path | Purpose |
 |------|---------|
@@ -100,7 +133,10 @@ Use this on each fresh install:
 - [ ] kubridge installed and loaded  
 - [ ] libshacccg present (`ur0:/data/libshacccg.suprx` or external path above)  
 - [ ] **`ux0:data/ff7/libjni_ff7.so`** exists and matches **SO_PATH**  
-- [ ] **`ux0:data/ff7/assets/`** populated from APK **`assets/`** (and any OBB pieces required for asset-manager loads)  
+- [ ] **`ux0:data/ff7/assets/`** populated from APK **`assets/`** (Shaders + button_*.png)  
+- [ ] **`ux0:data/ff7/data/`** populated from OBB **`ff7_1.02/data/`** (movies, music, *.tim, *.dat) — required  
+- [ ] **`ux0:data/ff7/save/`** populated from OBB **`ff7_1.02/save/`** — optional, only if OBB ships one  
+- [ ] **`ux0:data/ff7/Documents/`** exists as an empty writable folder (for in-game saves + APP.LOG)  
 - [ ] Same layout documented or scripted so teammates/devices match  
 
 **Phase 1 done when:** Launch passes **kubridge**, **ShaRKBR33D/shaCCG**, **DATA_PATH / assets layout**, and **missing `.so`** checks—i.e. you reach whatever failure comes next (typically loader/JNI), not configuration dialogs from [`init.c`](ff7-vita/source/utils/init.c) / [`gl_preload()`](ff7-vita/source/utils/glutil.c).

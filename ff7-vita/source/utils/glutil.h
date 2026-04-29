@@ -39,6 +39,9 @@ void glShaderSource_soloader(GLuint shader, GLsizei count,
 
 void glLinkProgram_soloader(GLuint program);
 
+/** Passthrough to VitaGL; the .so must not use the broken ret0 stub. */
+void glDetachShader_soloader(GLuint program, GLuint shader);
+
 #ifdef __cplusplus
 };
 #endif

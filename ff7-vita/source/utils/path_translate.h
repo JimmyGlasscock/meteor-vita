@@ -7,9 +7,11 @@
  *     even "//ff7_1.02/...".
  *   - Already-Vita paths: "ux0:data/ff7/...".
  *
- * We flatten all OBB content directly under DATA_PATH on the SD card, so
- * the translator's job is to coalesce these into a single Vita-friendly
- * absolute path.
+ * On-disk layout keeps OBB content under ff7_1.02/. Examples:
+ *   /ff7_1.02/data/movies/foo.mp4  →  ux0:data/ff7/ff7_1.02/data/movies/foo.mp4
+ *   data\fhuda.tim                 →  ux0:data/ff7/ff7_1.02/data/fhuda.tim
+ *   save\seed.dat                  →  ux0:data/ff7/ff7_1.02/save/seed.dat
+ *   Shaders/Shader.fsh (AAsset)    →  ux0:data/ff7/assets/Shaders/Shader.fsh
  */
 
 #ifndef SOLOADER_PATH_TRANSLATE_H
@@ -29,24 +31,19 @@ extern "C" {
  *   1. NULL / empty input -> just DATA_PATH.
  *   2. Convert backslashes to forward slashes.
  *   3. If a Vita device prefix is already present (':'), use as-is.
- *   4. Skip every leading '/'.
- *   5. Strip a leading "ff7_1.02/" (OBB root).
- *   6. Prepend DATA_PATH.
- *
- * Note: this never prepends "assets/". Asset-bundle callers must do that
- * themselves on the OBB-prefix-miss path; see path_translate_asset.
+ *   4. Strip every leading '/'.
+ *   5. Prepend DATA_PATH. If the remainder starts with ff7_1.02/, keep it;
+ *      if it starts with data/ or save/ alone, insert ff7_1.02/ before it.
  */
 void path_translate_data(const char *in, char *out, size_t out_sz);
 
 /**
- * Translate `in` for an APK asset lookup. Same rules as path_translate_data
- * EXCEPT that bare paths (those that don't reference the OBB or a Vita
- * device) get an additional "assets/" segment so that they resolve to the
- * APK's bundled assets tree on disk.
+ * Translate `in` for an AAssetManager-style lookup.
+ * OBB-rooted paths and bare data/ or save/ resolve like path_translate_data.
+ * All other bare paths get DATA_PATH + "assets/" + path.
  *
- * @return  true if the path was treated as an OBB/absolute path, false if
- *          the "assets/" prefix was applied. Useful for callers that want
- *          to log which routing rule fired.
+ * @return  true if resolved under ff7_1.02/ (explicit or bare data/save);
+ *          false if the "assets/" prefix was used or path was already absolute.
  */
 bool path_translate_asset(const char *in, char *out, size_t out_sz);
 

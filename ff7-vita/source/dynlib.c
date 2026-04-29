@@ -578,7 +578,7 @@ so_default_dynlib default_dynlib[] = {
         { "glDepthMask", (uintptr_t)&glDepthMask },
         { "glDepthRangef", (uintptr_t)&glDepthRangef },
         { "glDepthRangex", (uintptr_t)&glDepthRangex },
-        { "glDetachShader", (uintptr_t)&ret0 },
+        { "glDetachShader", (uintptr_t)&glDetachShader_soloader },
         { "glDisable", (uintptr_t)&glDisable },
         { "glDisableClientState", (uintptr_t)&glDisableClientState },
         { "glDisableVertexAttribArray", (uintptr_t)&glDisableVertexAttribArray },

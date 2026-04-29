@@ -25,6 +25,9 @@ GLboolean skip_next_compile = GL_FALSE;
 char next_shader_fname[256];
 void load_shader(GLuint shader, const char * string, size_t length);
 
+typedef void (*pfn_glDetachShader)(GLuint program, GLuint shader);
+static pfn_glDetachShader s_glDetachShader;
+
 // Rewrites a malloc'd shader source buffer in place so that it is acceptable
 // to libshacccg / VitaGL. The only Android-specific feature FF7's shaders use
 // is the GL_OES_EGL_image_external extension (samplerExternalOES), employed
@@ -70,12 +73,15 @@ void gl_preload() {
     }
 
 #ifdef USE_GLSL_SHADERS
-    vglSetSemanticBindingMode(VGL_MODE_POSTPONED);
+    /* POSTPONED defers work to glLinkProgram; some titles crash after the first
+     * glCompileShader when paired with our hooks. GLOBAL has no ordering premise. */
+    vglSetSemanticBindingMode(VGL_MODE_GLOBAL);
 #endif
 }
 
 void gl_init() {
     vglInitExtended(0, 960, 544, 6 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+    s_glDetachShader = (pfn_glDetachShader)vglGetProcAddress("glDetachShader");
 }
 
 void gl_swap() {
@@ -135,6 +141,11 @@ void glShaderSource_soloader(GLuint shader, GLsizei count,
                  (unsigned)shader);
 
     free(str);
+}
+
+void glDetachShader_soloader(GLuint program, GLuint shader) {
+    if (s_glDetachShader)
+        s_glDetachShader(program, shader);
 }
 
 void glLinkProgram_soloader(GLuint program) {

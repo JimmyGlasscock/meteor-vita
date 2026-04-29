@@ -5,15 +5,8 @@
 
 static const char OBB_ROOT[] = "ff7_1.02/";
 
-static const char *strip_leading_and_obb(const char *p, bool *out_was_obb) {
+static const char *strip_leading_slashes(const char *p) {
     while (*p == '/') ++p;
-
-    const size_t obb_len = sizeof(OBB_ROOT) - 1;
-    if (strncmp(p, OBB_ROOT, obb_len) == 0) {
-        if (out_was_obb) *out_was_obb = true;
-        return p + obb_len;
-    }
-    if (out_was_obb) *out_was_obb = false;
     return p;
 }
 
@@ -21,6 +14,16 @@ static void normalize_backslashes(char *s) {
     for (char *p = s; *p; ++p) {
         if (*p == '\\') *p = '/';
     }
+}
+
+static bool has_obb_root(const char *p) {
+    const size_t n = sizeof(OBB_ROOT) - 1;
+    return strncmp(p, OBB_ROOT, n) == 0;
+}
+
+/** Native strings that omit /ff7_1.02/ but refer to OBB files on disk. */
+static bool is_bare_obb_data_path(const char *p) {
+    return !strncmp(p, "data/", 5) || !strncmp(p, "save/", 5);
 }
 
 void path_translate_data(const char *in, char *out, size_t out_sz) {
@@ -38,13 +41,18 @@ void path_translate_data(const char *in, char *out, size_t out_sz) {
         return;
     }
 
-    const char *p = strip_leading_and_obb(tmp, NULL);
-    snprintf(out, out_sz, "%s%s", DATA_PATH, p);
+    const char *p = strip_leading_slashes(tmp);
+    /* Bare data/... and save/... live under ff7_1.02/ on Vita (no top-level data/). */
+    if (has_obb_root(p) || !is_bare_obb_data_path(p)) {
+        snprintf(out, out_sz, "%s%s", DATA_PATH, p);
+    } else {
+        snprintf(out, out_sz, "%s%s%s", DATA_PATH, OBB_ROOT, p);
+    }
 }
 
 bool path_translate_asset(const char *in, char *out, size_t out_sz) {
     if (!in || !*in) {
-        snprintf(out, out_sz, "%sassets/", DATA_PATH);
+        snprintf(out, out_sz, "%s", DATA_PATH);
         return false;
     }
 
@@ -57,17 +65,16 @@ bool path_translate_asset(const char *in, char *out, size_t out_sz) {
         return true;
     }
 
-    bool was_obb = false;
-    const char *p = strip_leading_and_obb(tmp, &was_obb);
+    const char *p = strip_leading_slashes(tmp);
 
-    if (was_obb || p != tmp) {
-        // Either an explicit /ff7_1.02/ root or had stripped slashes that
-        // suggest an absolute Android path. Route to the flat data root.
+    if (has_obb_root(p)) {
         snprintf(out, out_sz, "%s%s", DATA_PATH, p);
         return true;
     }
-
-    // Genuine bare APK-asset path; route through the assets/ tree.
+    if (is_bare_obb_data_path(p)) {
+        snprintf(out, out_sz, "%s%s%s", DATA_PATH, OBB_ROOT, p);
+        return true;
+    }
     snprintf(out, out_sz, "%sassets/%s", DATA_PATH, p);
     return false;
 }

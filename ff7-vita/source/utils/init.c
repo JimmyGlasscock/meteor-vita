@@ -39,7 +39,7 @@ extern so_module so_mod;
 
 /** Phase 1: kubridge / shaCCG / DATA_PATH layout (see FF7-Data-Layout.md). */
 static void soloader_verify_data_layout(void) {
-    char assets_root[384];
+    char path[384];
 
     if (!libshacccg_installed()) {
         l_fatal("libshacccg.suprx not found.");
@@ -58,22 +58,34 @@ static void soloader_verify_data_layout(void) {
     }
     l_success("DATA_PATH exists.");
 
-    snprintf(assets_root, sizeof(assets_root), "%sassets", DATA_PATH);
-    if (!is_dir(assets_root)) {
+    // Verify the OBB data tree is present at its canonical location.
+    snprintf(path, sizeof(path), "%sff7_1.02/data", DATA_PATH);
+    if (!is_dir(path)) {
+        l_fatal("OBB data directory missing: ff7_1.02/data");
+        fatal_error("Extract the FF7 OBB so that:\n%s/\nexists.\n"
+                    "(See FF7-Data-Layout.md.)", path);
+    }
+    l_success("ff7_1.02/data directory found.");
+
+    // Verify APK assets mirror (shaders are loaded at startup via AAssetManager).
+    snprintf(path, sizeof(path), "%sassets", DATA_PATH);
+    if (!is_dir(path)) {
         l_fatal("APK assets directory missing.");
-        fatal_error("Copy the Android APK assets/ tree to:\n%s/\n"
-                    "(See FF7-Data-Layout.md.)", assets_root);
+        fatal_error("Copy the APK assets/ tree to:\n%s/\n"
+                    "(Shaders/ required. See FF7-Data-Layout.md.)", path);
     }
     l_success("assets/ directory found.");
 
-    // gxp/ and glsl/ are writable scratch dirs for shader dumping
-    // (DUMP_COMPILED_SHADERS) and untranslated-shader fallbacks. Plain
-    // sceIo mkdir is enough; mode flags are interpreted by the kernel.
-    char scratch[384];
-    snprintf(scratch, sizeof(scratch), "%sgxp", DATA_PATH);
-    sceIoMkdir(scratch, 0777);
-    snprintf(scratch, sizeof(scratch), "%sglsl", DATA_PATH);
-    sceIoMkdir(scratch, 0777);
+    // Documents/ is writable storage for saves and APP.LOG. Create it now
+    // so the .so can write APP.LOG before the user ever saves.
+    snprintf(path, sizeof(path), "%sDocuments", DATA_PATH);
+    sceIoMkdir(path, 0777);
+
+    // glsl/ and gxp/ are shader-cache scratch dirs created on demand.
+    snprintf(path, sizeof(path), "%sglsl", DATA_PATH);
+    sceIoMkdir(path, 0777);
+    snprintf(path, sizeof(path), "%sgxp", DATA_PATH);
+    sceIoMkdir(path, 0777);
 }
 
 void soloader_init_all() {

@@ -41,6 +41,7 @@
 #include <falso_jni/FalsoJNI_ImplBridge.h>
 #include <falso_jni/FalsoJNI_Logger.h>
 
+#include "ff7_jni_callbacks.h"
 #include "utils/ff7_boot_log.h"
 #include "utils/path_translate.h"
 
@@ -257,60 +258,44 @@ static void mh_se_setvolume(jmethodID id, va_list args) {
 }
 
 /* ------------------------------------------------------------------ */
-/* MyDecoder (movie playback)                                         */
-/*                                                                    */
-/* We have no movie pipeline yet, so START reports failure (return 0) */
-/* and the rest are inert.                                            */
+/* MyDecoder (movie playback) — SceAvPlayer path in ff7_jni_callbacks.c */
+/* (same subsystem as layton-vita loader/player.c, adapted for GL tex)  */
 /* ------------------------------------------------------------------ */
 
 static jint mh_dec_start(jmethodID id, va_list args) {
-    (void)id;
-    jstring path = va_arg(args, jstring);
-    ff7_boot_log("[JNI] MyDecoder.START(\"%s\"): stub 0 (skip movie)",
-                 jstr_cstr(path));
-    return 0;
+    return ff7_cb_md_start(id, args);
 }
 
 static jint mh_dec_frame(jmethodID id, va_list args) {
-    (void)id; (void)args;
-    return 0;
+    return ff7_cb_md_frame(id, args);
 }
 
 static void mh_dec_after_frame(jmethodID id, va_list args) {
-    (void)id; (void)args;
+    ff7_cb_md_afterFrame(id, args);
 }
 
 static void mh_dec_reset(jmethodID id, va_list args) {
-    (void)id; (void)args;
-    ff7_boot_log("[JNI] MyDecoder.RESET()");
+    ff7_cb_md_reset(id, args);
 }
 
 static void mh_dec_set_position(jmethodID id, va_list args) {
-    (void)id;
-    jint pos = va_arg(args, jint);
-    ff7_boot_log("[JNI] MyDecoder.SET_POSITION(%d)", (int)pos);
+    ff7_cb_md_setPosition(id, args);
 }
 
 static void mh_dec_set_texture(jmethodID id, va_list args) {
-    (void)id;
-    jint tex = va_arg(args, jint);
-    ff7_boot_log("[JNI] MyDecoder.SET_TEXTURE(%d)", (int)tex);
+    ff7_cb_md_setTexture(id, args);
 }
 
 static void mh_dec_set_volume(jmethodID id, va_list args) {
-    (void)id;
-    jfloat v = (jfloat)va_arg(args, double);
-    ff7_boot_log("[JNI] MyDecoder.SET_VOLUME(%f)", (double)v);
+    ff7_cb_md_setVolume(id, args);
 }
 
 static jint mh_dec_get_position(jmethodID id, va_list args) {
-    (void)id; (void)args;
-    return 0;
+    return ff7_cb_md_getPosition(id, args);
 }
 
 static jint mh_dec_get_totaltime(jmethodID id, va_list args) {
-    (void)id; (void)args;
-    return 0;
+    return ff7_cb_md_getTotalTime(id, args);
 }
 
 /* ------------------------------------------------------------------ */

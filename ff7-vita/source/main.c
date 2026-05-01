@@ -9,6 +9,7 @@
 #include <so_util/so_util.h>
 
 #include "reimpl/controls.h"
+#include "reimpl/ff7_video_player.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -86,6 +87,8 @@ int main() {
     ff7_boot_log("main() entered");
 
     soloader_init_all();
+
+    ff7_video_init();
 
     ff7_boot_log("resolving JNI_OnLoad");
     int (* JNI_OnLoad)(void *jvm) = (void *)so_symbol(&so_mod, "JNI_OnLoad");

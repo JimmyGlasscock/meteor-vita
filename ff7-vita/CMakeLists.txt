@@ -104,6 +104,10 @@ add_executable(${CMAKE_PROJECT_NAME}
                source/utils/path_translate.c
                source/utils/settings.c
                source/utils/utils.c
+               source/reimpl/ff7_video_player.c
+               source/reimpl/ff7_gl_movie_tex.c
+               source/ff7_jni_callbacks.c
+               source/ff7_jni_log.c
                lib/falso_jni/FalsoJNI.c
                lib/falso_jni/FalsoJNI_ImplBridge.c
                lib/falso_jni/FalsoJNI_Logger.c
@@ -156,6 +160,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
                       SceAudioIn_stub
                       SceCommonDialog_stub
                       SceDisplay_stub
+                      SceAvPlayer_stub
                       SceKernelDmacMgr_stub
                       SceFios2_stub
                       SceCtrl_stub

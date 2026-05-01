@@ -80,7 +80,13 @@ void gl_preload() {
 }
 
 void gl_init() {
-    vglInitExtended(0, 960, 544, 6 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+    /*
+     * Layton-vita has no OpenGL stack: AvPlayer gpu_alloc PHYCONT slabs compete
+     * with vitaGL's internal GXM/PHYCONT budget. Keep VRAM low so the first
+     * sceKernelAllocMemBlock(USER_MAIN_PHYCONT_NC_RW, ~3MiB, NULL) can succeed
+     * (see layton player.c gpu_alloc).
+     */
+    vglInitExtended(0, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_NONE);
     s_glDetachShader = (pfn_glDetachShader)vglGetProcAddress("glDetachShader");
 }
 

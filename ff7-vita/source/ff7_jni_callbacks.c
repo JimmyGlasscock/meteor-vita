@@ -13,6 +13,11 @@
  * The original native symbols (fw_start_movie, AVI_frame, …) are still
  * resolved for diagnostic purposes but are NOT called — they require an
  * initialised OpenSL ES audio engine which is not available on Vita.
+ *
+ * Layton-vita (loader/player.c) uses the same SceAvPlayer + audio thread pattern;
+ * it differs in fileReplacement (RAM-backed read + dummy AddSource) and in
+ * presenting frames via sceGxmTextureInitLinear on decoder memory instead of
+ * our YUV→RGBA + glTexSubImage path.
  */
 
 #include "ff7_jni_callbacks.h"
@@ -60,9 +65,7 @@ static void resolve_avi_symbols(void) {
     if (s_avi_resolved) return;
     s_avi_resolved = 1;
 
-    ff7_video_init();   /* load SceAvPlayer sysmodule */
-
-    ff7_boot_log_section("AVI symbol resolution");
+    ff7_boot_log("=== AVI symbol resolution ===");
 
 #define RESOLVE_AVI(field, mangled)                                         \
     do {                                                                    \
@@ -113,11 +116,13 @@ jint ff7_cb_md_start(jmethodID id, va_list args) {
     int ok = vita_path[0] ? ff7_video_open(vita_path) : 0;
     if (!ok)
         ff7_boot_log("[movie] START: video open failed — movie will be skipped");
+    else if (s_movie_tex != 0)
+        ff7_video_bind_movie_texture(s_movie_tex);
 
     if (path_cstr)
         (*env)->ReleaseStringUTFChars(env, path, (char *)path_cstr);
 
-    return 1;
+    return (jint)(ok ? 1 : 0);
 }
 
 jint ff7_cb_md_getTotalTime(jmethodID id, va_list args) {
@@ -131,26 +136,26 @@ jint ff7_cb_md_frame(jmethodID id, va_list args) {
 
     int more = ff7_video_next_frame(s_movie_tex);
 
-    /* Log the first frame of each movie so we can confirm rendering started */
-    static int s_log_next = 1;
-    if (s_log_next) {
-        s_log_next = 0;
-        ff7_boot_log("[movie] FRAME: first frame decoded, more=%d tex=%u",
-                     more, (unsigned)s_movie_tex);
-    }
+    /* more: 1 = keep polling (playing or still buffering), 0 = AvPlayer ended or inactive */
+    static int s_movie_frame_i;
+    s_movie_frame_i++;
+    if (s_movie_frame_i <= 3 || s_movie_frame_i % 60 == 0)
+        ff7_boot_log("[movie] FRAME #%i ff7_video_next_frame -> more=%i tex=%u",
+                     s_movie_frame_i, more, (unsigned)s_movie_tex);
     if (!more) {
-        s_log_next = 1;   /* reset so next movie logs its first frame */
-        ff7_boot_log("[movie] FRAME: movie finished");
+        ff7_boot_log("[movie] FRAME: sequence end (more=0; game will reset or advance)");
+        s_movie_frame_i = 0;
     }
 
     return (jint)more;   /* 1 = still playing, 0 = done */
 }
 
 void ff7_cb_md_afterFrame(jmethodID id, va_list args) {
-    (void)id; (void)args;
-    /* Nothing to do: ff7_avi_next_frame already uploaded the frame to GL.
-     * The native staff_AVI_afterRenderingOES (SurfaceTexture.updateTexImage)
-     * is specific to Android and not called here. */
+    (void)id;
+    (void)args;
+    /* Android: SurfaceTexture.updateTexImage — call native hook when present. */
+    if (s_avi.avi_after)
+        s_avi.avi_after();
 }
 
 void ff7_cb_md_reset(jmethodID id, va_list args) {
@@ -198,10 +203,7 @@ void ff7_cb_md_setVolume(jmethodID id, va_list args) {
         s_last_vol_i = vol_i;
     }
 
-    /* AVI_setVolume crashes regardless of value — the OpenSL ES audio engine it
-     * talks to is never initialized on Vita (stubs only).  Skip the call; movie
-     * audio volume stays at whatever the decoder defaults to. */
-    (void)s_avi.avi_set_vol;
+    ff7_video_set_volume(vol);
 }
 
 /* ------------------------------------------------------------------ */

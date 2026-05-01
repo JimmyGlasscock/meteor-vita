@@ -54,3 +54,13 @@ uint32_t ff7_video_position_ms(void);
 
 /* Stop playback and free all resources. */
 void ff7_video_close(void);
+
+/* Main output volume for FMV audio (0..1); mirrors layton-vita video_set_volume. */
+void ff7_video_set_volume(float vol);
+
+/*
+ * Layton player.c video_open: after glGenTextures, glTexImage2D 8x8 NULL, then
+ * movie_tex[i] = vglGetGxmTexture(GL_TEXTURE_2D); vglFree(vglGetTexDataPointer(...)).
+ * Call once per open with the game's movie texture id (after SET_TEXTURE + open).
+ */
+void ff7_video_bind_movie_texture(GLuint tex_id);

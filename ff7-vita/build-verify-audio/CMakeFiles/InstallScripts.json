@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/build-verify-audio/cmake_install.cmake",
+		"/Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/build-verify-audio/lib/libc_bridge/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

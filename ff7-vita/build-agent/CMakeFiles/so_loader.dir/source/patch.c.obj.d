@@ -1,0 +1,21 @@
+CMakeFiles/so_loader.dir/source/patch.c.obj: \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/source/patch.c \
+ /usr/local/vitasdk/arm-vita-eabi/include/kubridge.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2/types.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2common/types.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include/stddef.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include/stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/machine/_default_types.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/features.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/_newlib_version.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/bits/posix_opt.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include-fixed/limits.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/_intsup.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/_stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/vitasdk/build_utils.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2/kernel/sysmem.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2common/kernel/sysmem.h \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/lib/so_util/so_util.h \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/lib/so_util/elf.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/cdefs.h

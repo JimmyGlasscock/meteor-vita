@@ -7,97 +7,78 @@
 
 #include "reimpl/controls.h"
 
-#include <math.h>
 #include <psp2/ctrl.h>
 #include <psp2/motion.h>
 #include <psp2/touch.h>
 #include <psp2/kernel/clib.h>
 
-#define LEFT_ANALOG_DEADZONE  0.16f
-#define RIGHT_ANALOG_DEADZONE 0.16f
+/*
+ * Raw analog stick thresholds for D-pad emulation, matching the approach used
+ * in the FF3/FF4 Vita ports (frangarcj/ff3_vita, Rinnegatamante/ff4_vita).
+ * Stick values are 0–255 with center at 128.  Anything below LOW or above HIGH
+ * fires the corresponding D-pad key event.  These values (~80/170) give roughly
+ * a 37 % deadzone from center on either side.
+ */
+#define ANALOG_DPAD_LOW  80
+#define ANALOG_DPAD_HIGH 170
 
-
-void coord_normalize(float * x, float * y, float deadzone) {
-    float magnitude = sqrtf((*x * *x) + (*y * *y));
-    if (magnitude < deadzone) {
-        *x = 0;
-        *y = 0;
-        return;
-    }
-
-    // normalize
-    *x = *x / magnitude;
-    *y = *y / magnitude;
-
-    float multiplier = ((magnitude - deadzone) / (1 - deadzone));
-    *x = *x * multiplier;
-    *y = *y * multiplier;
-}
-
-void controls_init() {
-    // Enable analog sticks and touchscreen
+void controls_init(void) {
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, 1);
-
-    // Enable accelerometer
+    /* sceMotionStartSampling is required before sceCtrlPeekBufferPositiveExt2
+     * in ANALOG_WIDE mode — without it some firmware versions don't populate
+     * the analog fields, leaving lx/ly at 0 and triggering spurious D-pad
+     * events on the first poll frame. */
     sceMotionStartSampling();
 }
 
-void poll_touch();
-void poll_pad();
-void poll_accel();
+static void poll_touch(void);
+static void poll_pad(void);
 
-void poll_stick(ControlsStickId which, float raw_x, float raw_y, float * readings_x, float * readings_y, float deadzone);
-
-void controls_poll() {
+void controls_poll(void) {
     poll_touch();
     poll_pad();
-    //poll_accel();
 }
 
-SceTouchData touch;
-SceTouchData touch_old;
+/* ------------------------------------------------------------------ */
+/* Touch                                                               */
+/* ------------------------------------------------------------------ */
 
-void poll_touch() {
+static SceTouchData touch;
+static SceTouchData touch_old;
+
+static void poll_touch(void) {
     sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch, 1);
 
     for (int i = 0; i < touch.reportNum; i++) {
-        float x = (float) touch.report[i].x * 960.f / 1920.0f;
-        float y = (float) touch.report[i].y * 544.f / 1088.0f;
+        float x = (float)touch.report[i].x * 960.f / 1920.0f;
+        float y = (float)touch.report[i].y * 544.f / 1088.0f;
 
-        // Check if the finger was down before to distinguish between the Move and Down events
         int finger_down = 0;
-
-        if (touch_old.reportNum > 0) {
-            for (int j = 0; j < touch_old.reportNum; j++) {
-                if (touch.report[i].id == touch_old.report[j].id) {
-                    finger_down = 1;
-                    break;
-                }
-            }
-        }
-
-        if (!finger_down) {
-            controls_handler_touch(touch.report[i].id, x, y, CONTROLS_ACTION_DOWN);
-        } else {
-            controls_handler_touch(touch.report[i].id, x, y, CONTROLS_ACTION_MOVE);
-        }
-    }
-
-    for (int i = 0; i < touch_old.reportNum; i++) {
-        int finger_up = 1;
-
-        for (int j = 0; j < touch.reportNum; j++) {
-            if (touch.report[j].id == touch_old.report[i].id ) {
-                finger_up = 0;
+        for (int j = 0; j < touch_old.reportNum; j++) {
+            if (touch.report[i].id == touch_old.report[j].id) {
+                finger_down = 1;
                 break;
             }
         }
 
-        if (finger_up == 1) {
-            float x = (float) touch_old.report[i].x * 960.f / 1920.0f;
-            float y = (float) touch_old.report[i].y * 544.f / 1088.0f;
+        if (!finger_down)
+            controls_handler_touch(touch.report[i].id, x, y, CONTROLS_ACTION_DOWN);
+        else
+            controls_handler_touch(touch.report[i].id, x, y, CONTROLS_ACTION_MOVE);
+    }
 
+    for (int i = 0; i < touch_old.reportNum; i++) {
+        int finger_up = 1;
+        for (int j = 0; j < touch.reportNum; j++) {
+            if (touch.report[j].id == touch_old.report[i].id) {
+                finger_up = 0;
+                break;
+            }
+        }
+        if (finger_up) {
+            float x = (float)touch_old.report[i].x * 960.f / 1920.0f;
+            float y = (float)touch_old.report[i].y * 544.f / 1088.0f;
             controls_handler_touch(touch_old.report[i].id, x, y, CONTROLS_ACTION_UP);
         }
     }
@@ -105,81 +86,92 @@ void poll_touch() {
     sceClibMemcpy(&touch_old, &touch, sizeof(touch));
 }
 
-static ButtonMapping mapping[] = {
-        { SCE_CTRL_UP,        AKEYCODE_DPAD_UP },
-        { SCE_CTRL_DOWN,      AKEYCODE_DPAD_DOWN },
-        { SCE_CTRL_LEFT,      AKEYCODE_DPAD_LEFT },
-        { SCE_CTRL_RIGHT,     AKEYCODE_DPAD_RIGHT },
-        { SCE_CTRL_CROSS,     AKEYCODE_BUTTON_A },
-        { SCE_CTRL_CIRCLE,    AKEYCODE_BUTTON_B },
-        { SCE_CTRL_SQUARE,    AKEYCODE_BUTTON_X },
-        { SCE_CTRL_TRIANGLE,  AKEYCODE_BUTTON_Y },
-        { SCE_CTRL_L1,        AKEYCODE_BUTTON_L1 },
-        { SCE_CTRL_R1,        AKEYCODE_BUTTON_R1 },
-        { SCE_CTRL_START,     AKEYCODE_BUTTON_START },
-        { SCE_CTRL_SELECT,    AKEYCODE_BUTTON_SELECT },
+/* ------------------------------------------------------------------ */
+/* Buttons                                                             */
+/* ------------------------------------------------------------------ */
+
+static const ButtonMapping mapping[] = {
+    { SCE_CTRL_UP,       AKEYCODE_DPAD_UP     },
+    { SCE_CTRL_DOWN,     AKEYCODE_DPAD_DOWN   },
+    { SCE_CTRL_LEFT,     AKEYCODE_DPAD_LEFT   },
+    { SCE_CTRL_RIGHT,    AKEYCODE_DPAD_RIGHT  },
+    { SCE_CTRL_CROSS,    AKEYCODE_BUTTON_A    },
+    { SCE_CTRL_CIRCLE,   AKEYCODE_BUTTON_B    },
+    { SCE_CTRL_SQUARE,   AKEYCODE_BUTTON_X    },
+    { SCE_CTRL_TRIANGLE, AKEYCODE_BUTTON_Y    },
+    { SCE_CTRL_L1,       AKEYCODE_BUTTON_L1   },
+    { SCE_CTRL_R1,       AKEYCODE_BUTTON_R1   },
+    { SCE_CTRL_START,    AKEYCODE_BUTTON_START  },
+    { SCE_CTRL_SELECT,   AKEYCODE_BUTTON_SELECT },
 };
 
-uint32_t old_buttons = 0, current_buttons = 0, pressed_buttons = 0, released_buttons = 0;
+/* ------------------------------------------------------------------ */
+/* Left-stick → D-pad emulation                                       */
+/*                                                                     */
+/* FF3/FF4 Vita ports pass raw stick values directly to the engine as  */
+/* a D-pad bitmask.  FF7 uses key events instead, so we track which   */
+/* virtual directions are currently "held" and fire DOWN/UP edges.    */
+/*                                                                     */
+/* The physical D-pad has priority: if the real button is already held */
+/* in a direction we suppress the analog event for that direction to   */
+/* avoid injecting a duplicate DOWN with no matching UP.              */
+/* ------------------------------------------------------------------ */
 
-float analog_lx[3] = { 0 };
-float analog_ly[3] = { 0 };
-float analog_rx[3] = { 0 };
-float analog_ry[3] = { 0 };
+static uint8_t adpad_up    = 0;
+static uint8_t adpad_down  = 0;
+static uint8_t adpad_left  = 0;
+static uint8_t adpad_right = 0;
 
-void poll_pad() {
-    SceCtrlData pad;
-    sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
+static void poll_analog_dpad(uint8_t lx, uint8_t ly, uint32_t buttons) {
+    uint8_t want_up    = (ly < ANALOG_DPAD_LOW);
+    uint8_t want_down  = (ly > ANALOG_DPAD_HIGH);
+    uint8_t want_left  = (lx < ANALOG_DPAD_LOW);
+    uint8_t want_right = (lx > ANALOG_DPAD_HIGH);
 
-    // Gamepad buttons
-    old_buttons = current_buttons;
-    current_buttons = pad.buttons;
-    pressed_buttons = current_buttons & ~old_buttons;
-    released_buttons = ~current_buttons & old_buttons;
+    /* Suppress analog direction if the physical D-pad button is held */
+    if (buttons & SCE_CTRL_UP)    want_up    = 0;
+    if (buttons & SCE_CTRL_DOWN)  want_down  = 0;
+    if (buttons & SCE_CTRL_LEFT)  want_left  = 0;
+    if (buttons & SCE_CTRL_RIGHT) want_right = 0;
 
-    for (int i = 0; i < sizeof(mapping) / sizeof(ButtonMapping); i++) {
-        if (pressed_buttons & mapping[i].sce_button) {
-            controls_handler_key(mapping[i].android_button, CONTROLS_ACTION_DOWN);
-        }
-        if (released_buttons & mapping[i].sce_button) {
-            controls_handler_key(mapping[i].android_button, CONTROLS_ACTION_UP);
-        }
-    }
+#define EDGE(dir, code) \
+    if ( want_##dir && !adpad_##dir) controls_handler_key(code, CONTROLS_ACTION_DOWN); \
+    if (!want_##dir &&  adpad_##dir) controls_handler_key(code, CONTROLS_ACTION_UP);   \
+    adpad_##dir = want_##dir
 
-    // Analog sticks
-    poll_stick(CONTROLS_STICK_LEFT, (float)pad.lx, (float)pad.ly, analog_lx, analog_ly, LEFT_ANALOG_DEADZONE);
-    poll_stick(CONTROLS_STICK_RIGHT, (float)pad.rx, (float)pad.ry, analog_rx, analog_ry, RIGHT_ANALOG_DEADZONE);
+    EDGE(up,    AKEYCODE_DPAD_UP);
+    EDGE(down,  AKEYCODE_DPAD_DOWN);
+    EDGE(left,  AKEYCODE_DPAD_LEFT);
+    EDGE(right, AKEYCODE_DPAD_RIGHT);
+
+#undef EDGE
 }
 
-void poll_stick(ControlsStickId which, float raw_x, float raw_y, float * readings_x, float * readings_y, float deadzone) {
-    readings_x[0] = (raw_x - 128.0f) / 128.0f;
-    readings_y[0] = (raw_y - 128.0f) / 128.0f;
+/* ------------------------------------------------------------------ */
+/* pad poll                                                            */
+/* ------------------------------------------------------------------ */
 
-    coord_normalize(&readings_x[0], &readings_y[0], deadzone);
+static uint32_t old_buttons = 0;
 
-    // Last two readings are 0, the one before that isn't ==> MOTION_ACTION_UP
-    if (
-        (readings_x[0] == 0.f && readings_y[0] == 0.f) &&
-        (readings_x[1] == 0.f && readings_y[1] == 0.f) &&
-        (readings_x[2] != 0.f || readings_y[2] != 0.f)
-    ) {
-        controls_handler_analog(which, readings_x[0], readings_y[0], CONTROLS_ACTION_UP);
-    }
-    // Current reading isn't 0, the two before are ==> MOTION_ACTION_DOWN
-    else if (
-        (readings_x[0] != 0.f || readings_y[0] != 0.f) &&
-        (readings_x[1] == 0.f && readings_y[1] == 0.f) &&
-        (readings_x[2] == 0.f && readings_y[2] == 0.f)
-    ) {
-        controls_handler_analog(which, readings_x[0], readings_y[0], CONTROLS_ACTION_DOWN);
-    }
-    // Other cases ==> MOTION_ACTION_MOVE
-    else {
-        controls_handler_analog(which, readings_x[0], readings_y[0], CONTROLS_ACTION_MOVE);
+static void poll_pad(void) {
+    SceCtrlData pad;
+    sceClibMemset(&pad, 0, sizeof(pad));
+    /* Pre-set analog axes to center (128) so a failed read doesn't produce
+     * stray D-pad events from lx/ly == 0. */
+    pad.lx = pad.ly = pad.rx = pad.ry = 128;
+    sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
+
+    uint32_t current  = pad.buttons;
+    uint32_t pressed  = current & ~old_buttons;
+    uint32_t released = ~current & old_buttons;
+    old_buttons = current;
+
+    for (int i = 0; i < (int)(sizeof(mapping) / sizeof(mapping[0])); i++) {
+        if (pressed  & mapping[i].sce_button)
+            controls_handler_key(mapping[i].android_button, CONTROLS_ACTION_DOWN);
+        if (released & mapping[i].sce_button)
+            controls_handler_key(mapping[i].android_button, CONTROLS_ACTION_UP);
     }
 
-    readings_x[2] = readings_x[1];
-    readings_y[2] = readings_y[1];
-    readings_x[1] = readings_x[0];
-    readings_y[1] = readings_y[0];
+    poll_analog_dpad(pad.lx, pad.ly, current);
 }

@@ -175,7 +175,3 @@ void controls_handler_touch(int32_t id, float x, float y, ControlsAction action)
     }
 }
 
-void controls_handler_analog(ControlsStickId which, float x, float y, ControlsAction action) {
-    // The Android binary has no native analog-stick entry point; sticks are not used.
-    (void)which; (void)x; (void)y; (void)action;
-}

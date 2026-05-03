@@ -13,6 +13,9 @@
  * @brief Resolving dynamic imports of the .so.
  */
 
+/* mktemp is deprecated but the Android binary calls it; we must export it. */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 #include <psp2/kernel/clib.h>
 #include <stdio.h>
 #include <stdlib.h>

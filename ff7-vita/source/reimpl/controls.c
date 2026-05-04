@@ -6,6 +6,7 @@
  */
 
 #include "reimpl/controls.h"
+#include "reimpl/ff7_input_hooks.h"
 
 #include <psp2/ctrl.h>
 #include <psp2/motion.h>
@@ -90,19 +91,32 @@ static void poll_touch(void) {
 /* Buttons                                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Map Vita buttons to Win32 VK codes, NOT Android AKEYCODE values.
+ *
+ * fn_onKey writes its keycode argument directly into the game's internal
+ * keyboard-state buffer at index [keycode].  fw_GetAsyncKeyState(vk) reads
+ * from the same buffer at index [vk].  Using AKEYCODE values (e.g. 19 for
+ * DPAD_UP) writes slot 19 while the game reads slot 38 (VK_UP = 0x26) —
+ * a complete mismatch.  Sending VK codes lets the original (unhooked)
+ * fw_GetAsyncKeyState find the input we wrote.
+ */
 static const ButtonMapping mapping[] = {
-    { SCE_CTRL_UP,       AKEYCODE_DPAD_UP     },
-    { SCE_CTRL_DOWN,     AKEYCODE_DPAD_DOWN   },
-    { SCE_CTRL_LEFT,     AKEYCODE_DPAD_LEFT   },
-    { SCE_CTRL_RIGHT,    AKEYCODE_DPAD_RIGHT  },
-    { SCE_CTRL_CROSS,    AKEYCODE_BUTTON_A    },
-    { SCE_CTRL_CIRCLE,   AKEYCODE_BUTTON_B    },
-    { SCE_CTRL_SQUARE,   AKEYCODE_BUTTON_X    },
-    { SCE_CTRL_TRIANGLE, AKEYCODE_BUTTON_Y    },
-    { SCE_CTRL_L1,       AKEYCODE_BUTTON_L1   },
-    { SCE_CTRL_R1,       AKEYCODE_BUTTON_R1   },
-    { SCE_CTRL_START,    AKEYCODE_BUTTON_START  },
-    { SCE_CTRL_SELECT,   AKEYCODE_BUTTON_SELECT },
+    /* D-pad: Win32 arrow keys */
+    { SCE_CTRL_UP,       0x26 },   /* VK_UP     */
+    { SCE_CTRL_DOWN,     0x28 },   /* VK_DOWN   */
+    { SCE_CTRL_LEFT,     0x25 },   /* VK_LEFT   */
+    { SCE_CTRL_RIGHT,    0x27 },   /* VK_RIGHT  */
+    /* Face buttons */
+    { SCE_CTRL_CROSS,    0x0D },   /* VK_RETURN — confirm */
+    { SCE_CTRL_CIRCLE,   0x1B },   /* VK_ESCAPE — cancel  */
+    { SCE_CTRL_SQUARE,   0x58 },   /* VK_X      — special */
+    { SCE_CTRL_TRIANGLE, 0x59 },   /* VK_Y      — menu    */
+    /* Shoulder / system */
+    { SCE_CTRL_L1,       0x21 },   /* VK_PRIOR  — page up / L1  */
+    { SCE_CTRL_R1,       0x22 },   /* VK_NEXT   — page dn / R1  */
+    { SCE_CTRL_START,    0x70 },   /* VK_F1     — menu / start  */
+    { SCE_CTRL_SELECT,   0x71 },   /* VK_F2     — select        */
 };
 
 /* ------------------------------------------------------------------ */
@@ -139,10 +153,10 @@ static void poll_analog_dpad(uint8_t lx, uint8_t ly, uint32_t buttons) {
     if (!want_##dir &&  adpad_##dir) controls_handler_key(code, CONTROLS_ACTION_UP);   \
     adpad_##dir = want_##dir
 
-    EDGE(up,    AKEYCODE_DPAD_UP);
-    EDGE(down,  AKEYCODE_DPAD_DOWN);
-    EDGE(left,  AKEYCODE_DPAD_LEFT);
-    EDGE(right, AKEYCODE_DPAD_RIGHT);
+    EDGE(up,    0x26);   /* VK_UP    */
+    EDGE(down,  0x28);   /* VK_DOWN  */
+    EDGE(left,  0x25);   /* VK_LEFT  */
+    EDGE(right, 0x27);   /* VK_RIGHT */
 
 #undef EDGE
 }
@@ -174,4 +188,8 @@ static void poll_pad(void) {
     }
 
     poll_analog_dpad(pad.lx, pad.ly, current);
+
+    /* Share the freshly-read pad state with the input hooks so they never
+     * call sceCtrl themselves (would fire during init_array before controls_init). */
+    ff7_update_pad_cache(&pad);
 }

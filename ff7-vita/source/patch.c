@@ -14,9 +14,20 @@
 #include <kubridge.h>
 #include <so_util/so_util.h>
 
+#include "reimpl/ff7_input_hooks.h"
+#include "utils/ff7_boot_log.h"
+
 extern so_module so_mod;
 
 void so_patch(void) {
-    // Sample hook
-    //hook_addr((uintptr_t)so_symbol(&so_mod, "_ZN6glitch2os7Printer5printEPKcz"), (uintptr_t)&hookedFunction);
+    uintptr_t addr;
+
+    /* GetAsyncKeyState: temporarily disabled to test whether fn_onKey alone
+     * drives title-screen navigation.  Re-enable once fn_onKey is confirmed
+     * working for the title screen; GAK will be needed for in-game controls. */
+
+    /* GetDeviceState: DEFERRED — returning DI_OK from this hook switches the
+     * game into "DirectInput/gamepad mode" and silences fn_onKey + fn_onTouch,
+     * breaking all input.  Use GetAsyncKeyState alone for navigation until we
+     * can confirm the game supports simultaneous touch + DirectInput. */
 }

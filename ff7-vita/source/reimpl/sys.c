@@ -149,3 +149,54 @@ int setenv_soloader(const char * name, const char * value, int overwrite) {
 int getpagesize(void) {
     return PAGE_SIZE;
 }
+
+/* ------------------------------------------------------------------ */
+/* ANativeWindow stubs (libandroid.so)                                */
+/*                                                                     */
+/* FF7 Android uses Java GLSurfaceView for rendering, so native code  */
+/* almost certainly never calls these. They are provided as safe      */
+/* stubs so any unexpected import resolves to a no-op rather than a  */
+/* crash. Width/height reflect the fixed Vita screen dimensions.      */
+/* ------------------------------------------------------------------ */
+
+void ANativeWindow_acquire(void *win) {
+    (void)win;
+}
+
+void ANativeWindow_release(void *win) {
+    (void)win;
+}
+
+int32_t ANativeWindow_getWidth(void *win) {
+    (void)win;
+    return 960;
+}
+
+int32_t ANativeWindow_getHeight(void *win) {
+    (void)win;
+    return 544;
+}
+
+int32_t ANativeWindow_getFormat(void *win) {
+    (void)win;
+    /* WINDOW_FORMAT_RGBA_8888 = 1 */
+    return 1;
+}
+
+int32_t ANativeWindow_setBuffersGeometry(void *win, int32_t width,
+                                          int32_t height, int32_t format) {
+    (void)win; (void)width; (void)height; (void)format;
+    return 0;
+}
+
+int32_t ANativeWindow_lock(void *win, void *outBuffer, void *inOutDirtyBounds) {
+    (void)win; (void)outBuffer; (void)inOutDirtyBounds;
+    l_warn("ANativeWindow_lock: not implemented");
+    return -1;
+}
+
+int32_t ANativeWindow_unlockAndPost(void *win) {
+    (void)win;
+    l_warn("ANativeWindow_unlockAndPost: not implemented");
+    return -1;
+}

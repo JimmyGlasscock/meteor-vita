@@ -96,6 +96,12 @@ add_executable(${CMAKE_PROJECT_NAME}
                source/reimpl/sys.c
                source/reimpl/time64.c
                source/reimpl/asset_manager.cpp
+               source/reimpl/gles_dynlib_wrappers.c
+               source/reimpl/ff7_gl_movie_tex.c
+               source/reimpl/ff7_avi_player.c
+               source/reimpl/ff7_video_player.c
+               source/reimpl/ff7_input_hooks.c
+               source/reimpl/ff7_se_player.c
                source/utils/dialog.c
                source/utils/ff7_boot_log.c
                source/utils/glutil.c
@@ -135,6 +141,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
                       vorbisenc
                       vorbisfile
                       FLAC
+                      jpeg
                       stdc++
                       vitaGL
                       vitashark
@@ -154,6 +161,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
                       SceAppUtil_stub
                       SceAudio_stub
                       SceAudioIn_stub
+                      SceAvPlayer_stub
+                      SceSysmodule_stub
                       SceCommonDialog_stub
                       SceDisplay_stub
                       SceKernelDmacMgr_stub

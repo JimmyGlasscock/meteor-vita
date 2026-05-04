@@ -43,6 +43,7 @@
 
 #include "utils/ff7_boot_log.h"
 #include "utils/path_translate.h"
+#include "reimpl/ff7_se_player.h"
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -247,13 +248,15 @@ static jint mh_image_get_height(jmethodID id, va_list args) {
 static void mh_se_play(jmethodID id, va_list args) {
     (void)id;
     jint se_id = va_arg(args, jint);
-    ff7_boot_log("[JNI] SEPlayer.PLAY(%d): stub", (int)se_id);
+    ff7_boot_log("[JNI] SEPlayer.PLAY(%d)", (int)se_id);
+    ff7_se_play((int)se_id);
 }
 
 static void mh_se_setvolume(jmethodID id, va_list args) {
     (void)id;
     jfloat v = (jfloat)va_arg(args, double);
-    ff7_boot_log("[JNI] SEPlayer.SETVOLUME(%f): stub", (double)v);
+    ff7_boot_log("[JNI] SEPlayer.SETVOLUME(%f)", (double)v);
+    ff7_se_set_volume((float)v);
 }
 
 /* ------------------------------------------------------------------ */

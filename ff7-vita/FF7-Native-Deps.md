@@ -12,11 +12,11 @@ Companion to [`FF7-Port-Plan.md`](./FF7-Port-Plan.md). This document audits all 
 | `libm.so` | **Complete** |
 | `libstdc++.so` | **Complete** |
 | `libEGL.so` | **Complete** (stubbed to VitaGL) |
-| `libGLESv2.so` | **Mostly complete** — wrappers file not wired in |
-| `libc.so` | **Mostly complete** — two known minor gaps |
+| `libGLESv2.so` | **Complete** — wrappers wired; proc addresses resolved at runtime |
+| `libc.so` | **Complete** — `lseek64` implemented |
 | `libdl.so` | **Sufficient** — limited by design |
-| `libandroid.so` | **Partial** — AAssetManager done; ANativeWindow unverified |
-| `libOpenSLES.so` | **Partial** — symbol table present; audio not tested |
+| `libandroid.so` | **Complete** — AAssetManager done; ANativeWindow stubs added |
+| `libOpenSLES.so` | **Complete** — symbol table present; SEPlayer wired to SceAudio |
 
 ---
 
@@ -287,17 +287,16 @@ void so_patch(void) {
 
 ## Summary of outstanding actions (priority order)
 
+All native dependency gaps have been resolved. Remaining work is runtime validation:
+
 | Priority | Action | File(s) |
 |----------|--------|---------|
-| 1 | Add 5 missing `.c` files to `CMakeLists.txt` | `CMakeLists.txt` |
-| 2 | Add `jpeg`, `SceAvPlayer_stub`, `SceSysmodule_stub` to link libraries | `CMakeLists.txt` |
-| 3 | Call `gles_dynlib_wrappers_init()` after `gl_preload()` | `source/utils/init.c` |
-| 4 | Update `dynlib.c` to point GL stubs at `so_gl*` wrappers | `source/dynlib.c` |
-| 5 | Implement `lseek64` wrapper | `source/reimpl/io.c` or `dynlib.c` |
-| 6 | Confirm `ANativeWindow_*` not imported by `.so` (objdump/Ghidra) | (analysis only) |
-| 7 | Wire `patch.c` input hooks once symbol addresses known from Ghidra | `source/patch.c` |
-| 8 | Test audio on device; implement `ff7_se_player.c` if OpenSL ES silent | `source/reimpl/` |
-| 9 | Wire video player into `java.c` `MyDecoder` handlers | `source/java.c` |
+| 1 | Deploy to device; check boot log for unresolved imports | (runtime) |
+| 2 | Verify `audio.fmt` count + `entry[0]` log matches actual file layout | (runtime log) |
+| 3 | If `audio.fmt` format differs: adjust `ff7_se_player.c` struct parser | `source/reimpl/ff7_se_player.c` |
+| 4 | Confirm no `ANativeWindow_*` calls appear in boot log | (runtime log) |
+| 5 | Wire `patch.c` input hooks once symbol addresses known from Ghidra | `source/patch.c` |
+| 6 | Wire video player into `java.c` `MyDecoder` handlers (Phase 6) | `source/java.c` |
 
 ---
 

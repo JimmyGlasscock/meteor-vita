@@ -17,6 +17,8 @@
 #include "utils/settings.h"
 
 #include <reimpl/controls.h>
+#include <reimpl/gles_dynlib_wrappers.h>
+#include <reimpl/ff7_se_player.h>
 
 #include <string.h>
 
@@ -166,6 +168,11 @@ void soloader_init_all() {
     l_success("OpenGL preloaded.");
     ff7_boot_log("gl_preload ok");
 
+    ff7_boot_log("gles_dynlib_wrappers_init: start");
+    gles_dynlib_wrappers_init();
+    l_success("GLES proc-address wrappers resolved.");
+    ff7_boot_log("gles_dynlib_wrappers_init ok");
+
     ff7_boot_log("jni_init: start");
     jni_init();
     l_success("FalsoJNI initialized.");
@@ -173,6 +180,10 @@ void soloader_init_all() {
 
     controls_init();
     l_success("Controls initialized.");
+
+    ff7_boot_log("ff7_se_player_init: start");
+    ff7_se_player_init();
+    ff7_boot_log("ff7_se_player_init done");
 
     ff7_boot_log("soloader_init_all done");
 }

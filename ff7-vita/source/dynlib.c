@@ -60,6 +60,7 @@
 #include "reimpl/egl.h"
 #include "reimpl/time64.h"
 #include "reimpl/asset_manager.h"
+#include "reimpl/gles_dynlib_wrappers.h"
 
 const unsigned int __page_size = PAGE_SIZE;
 
@@ -261,6 +262,17 @@ so_default_dynlib default_dynlib[] = {
         { "AAssetManager_openDir", (uintptr_t)&AAssetManager_openDir },
 
 
+        // ANativeWindow (libandroid.so) — stubs; FF7 uses Java GLSurfaceView
+        { "ANativeWindow_acquire",            (uintptr_t)&ANativeWindow_acquire            },
+        { "ANativeWindow_release",            (uintptr_t)&ANativeWindow_release            },
+        { "ANativeWindow_getWidth",           (uintptr_t)&ANativeWindow_getWidth           },
+        { "ANativeWindow_getHeight",          (uintptr_t)&ANativeWindow_getHeight          },
+        { "ANativeWindow_getFormat",          (uintptr_t)&ANativeWindow_getFormat          },
+        { "ANativeWindow_setBuffersGeometry", (uintptr_t)&ANativeWindow_setBuffersGeometry },
+        { "ANativeWindow_lock",               (uintptr_t)&ANativeWindow_lock               },
+        { "ANativeWindow_unlockAndPost",      (uintptr_t)&ANativeWindow_unlockAndPost      },
+
+
         // Math
         { "acos", (uintptr_t)&acos },
         { "acosf", (uintptr_t)&acosf },
@@ -457,7 +469,7 @@ so_default_dynlib default_dynlib[] = {
         { "ftruncate", (uintptr_t)&ftruncate },
         { "getcwd", (uintptr_t)&getcwd },
         { "lseek", (uintptr_t)&lseek },
-        { "lseek64", (uintptr_t)&ret0 }, // TODO: implement or stub with warning
+        { "lseek64", (uintptr_t)&lseek64_soloader },
         { "lstat", (uintptr_t)&lstat },
         { "mkdir", (uintptr_t)&mkdir },
         { "pipe", (uintptr_t)&pipe },
@@ -534,7 +546,7 @@ so_default_dynlib default_dynlib[] = {
         { "glBindRenderbuffer", (uintptr_t)&glBindRenderbuffer },
         { "glBindRenderbufferOES", (uintptr_t)&glBindRenderbuffer },
         { "glBindTexture", (uintptr_t)&glBindTexture },
-        { "glBlendColor", (uintptr_t)&ret0 },
+        { "glBlendColor", (uintptr_t)&so_glBlendColor },
         { "glBlendEquation", (uintptr_t)&glBlendEquation },
         { "glBlendEquationOES", (uintptr_t)&glBlendEquation },
         { "glBlendEquationSeparate", (uintptr_t)&glBlendEquationSeparate },
@@ -562,7 +574,7 @@ so_default_dynlib default_dynlib[] = {
         { "glColorPointer", (uintptr_t)&glColorPointer },
         { "glCompileShader", (uintptr_t)&glCompileShader_soloader },
         { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2D },
-        { "glCompressedTexSubImage2D", (uintptr_t)&ret0 },
+        { "glCompressedTexSubImage2D", (uintptr_t)&so_glCompressedTexSubImage2D },
         { "glCopyTexImage2D", (uintptr_t)&glCopyTexImage2D },
         { "glCopyTexSubImage2D", (uintptr_t)&glCopyTexSubImage2D },
         { "glCreateProgram", (uintptr_t)&glCreateProgram },
@@ -638,8 +650,8 @@ so_default_dynlib default_dynlib[] = {
         { "glGetLightxv", (uintptr_t)&ret0 },
         { "glGetMaterialfv", (uintptr_t)&ret0 },
         { "glGetMaterialxv", (uintptr_t)&ret0 },
-        { "glGetPointerv", (uintptr_t)&ret0 },
-        { "glGetRenderbufferParameterivOES", (uintptr_t)&ret0 },
+        { "glGetPointerv", (uintptr_t)&so_glGetPointerv },
+        { "glGetRenderbufferParameterivOES", (uintptr_t)&so_glGetRenderbufferParameteriv },
         { "glGetProgramInfoLog", (uintptr_t)&glGetProgramInfoLog },
         { "glGetProgramiv", (uintptr_t)&glGetProgramiv },
         { "glGetShaderInfoLog", (uintptr_t)&glGetShaderInfoLog },
@@ -652,12 +664,12 @@ so_default_dynlib default_dynlib[] = {
         { "glGetTexGenfvOES", (uintptr_t)&ret0 },
         { "glGetTexGenivOES", (uintptr_t)&ret0 },
         { "glGetTexGenxvOES", (uintptr_t)&ret0 },
-        { "glGetTexParameterfv", (uintptr_t)&ret0 },
-        { "glGetTexParameteriv", (uintptr_t)&ret0 },
+        { "glGetTexParameterfv", (uintptr_t)&so_glGetTexParameterfv },
+        { "glGetTexParameteriv", (uintptr_t)&so_glGetTexParameteriv },
         { "glGetTexParameterxv", (uintptr_t)&ret0 },
         { "glGetUniformLocation", (uintptr_t)&glGetUniformLocation },
         { "glHint", (uintptr_t)&glHint },
-        { "glIsBuffer", (uintptr_t)&ret0 },
+        { "glIsBuffer", (uintptr_t)&so_glIsBuffer },
         { "glIsRenderbuffer", (uintptr_t)&glIsRenderbuffer },
         { "glIsEnabled", (uintptr_t)&glIsEnabled },
         { "glIsFramebufferOES", (uintptr_t)&glIsFramebuffer },
@@ -714,8 +726,8 @@ so_default_dynlib default_dynlib[] = {
         { "glRenderbufferStorageOES", (uintptr_t)&glRenderbufferStorage },
         { "glRotatef", (uintptr_t)&glRotatef },
         { "glRotatex", (uintptr_t)&glRotatex },
-        { "glSampleCoverage", (uintptr_t)&ret0 },
-        { "glSampleCoveragex", (uintptr_t)&ret0 },
+        { "glSampleCoverage", (uintptr_t)&so_glSampleCoverage },
+        { "glSampleCoveragex", (uintptr_t)&so_glSampleCoverage },
         { "glScalef", (uintptr_t)&glScalef },
         { "glScalex", (uintptr_t)&glScalex },
         { "glScissor", (uintptr_t)&glScissor },
@@ -741,7 +753,7 @@ so_default_dynlib default_dynlib[] = {
         { "glTexGenxvOES", (uintptr_t)&ret0 },
         { "glTexImage2D", (uintptr_t)&glTexImage2D },
         { "glTexParameterf", (uintptr_t)&glTexParameterf },
-        { "glTexParameterfv", (uintptr_t)&ret0 },
+        { "glTexParameterfv", (uintptr_t)&so_glTexParameterfv },
         { "glTexParameteri", (uintptr_t)&glTexParameteri },
         { "glTexParameteriv", (uintptr_t)&glTexParameteriv },
         { "glTexParameterx", (uintptr_t)&glTexParameterx },
@@ -771,7 +783,7 @@ so_default_dynlib default_dynlib[] = {
         { "glUnmapBuffer", (uintptr_t)&glUnmapBuffer },
         { "glUnmapBufferOES", (uintptr_t)&glUnmapBuffer },
         { "glUseProgram", (uintptr_t)&glUseProgram },
-        { "glValidateProgram", (uintptr_t)&ret0 },
+        { "glValidateProgram", (uintptr_t)&so_glValidateProgram },
         { "glVertexAttrib4f", (uintptr_t)&glVertexAttrib4f },
         { "glVertexAttrib4fv", (uintptr_t)&glVertexAttrib4fv },
         { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },

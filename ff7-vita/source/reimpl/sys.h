@@ -55,6 +55,16 @@ int setenv_soloader(const char * name, const char * value, int overwrite);
 
 int getpagesize(void);
 
+#include <stdint.h>
+void    ANativeWindow_acquire(void *win);
+void    ANativeWindow_release(void *win);
+int32_t ANativeWindow_getWidth(void *win);
+int32_t ANativeWindow_getHeight(void *win);
+int32_t ANativeWindow_getFormat(void *win);
+int32_t ANativeWindow_setBuffersGeometry(void *win, int32_t w, int32_t h, int32_t fmt);
+int32_t ANativeWindow_lock(void *win, void *outBuffer, void *inOutDirtyBounds);
+int32_t ANativeWindow_unlockAndPost(void *win);
+
 #ifdef __cplusplus
 };
 #endif

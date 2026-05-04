@@ -41,7 +41,7 @@
 /* Maximum simultaneous SE voices — one SceAudio port each.            */
 #define SE_MAX_VOICES    4
 /* Maximum entries in audio.fmt we will allocate for.                  */
-#define SE_MAX_ENTRIES   2048
+#define SE_MAX_ENTRIES   4096
 
 /* ------------------------------------------------------------------ */
 /* Audio.fmt entry                                                     */

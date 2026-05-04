@@ -42,18 +42,29 @@
  * We recover the parent struct via offsetof arithmetic.
  * ====================================================================== */
 
-/* --- Android NDK SLObjectItf_ ordering (DIFFERS from VitaSDK) ---------- */
+/* --- Standard OpenSL ES 1.0.1 SLObjectItf_ ordering.
+ *
+ * Both the Android NDK and the VitaSDK ship the standard ordering.
+ * An earlier revision of this file had Destroy at slot 3 and GetInterface
+ * at slot 9 based on incorrect information — that caused the game to call
+ * Destroy() every time it tried to call GetInterface().
+ *
+ * Correct standard ordering (verified against both SDK headers):
+ *   0 Realize  1 Resume  2 GetState  3 GetInterface  4 RegisterCallback
+ *   5 AbortAsyncOperation  6 Destroy  7 SetPriority  8 GetPriority
+ *   9 SetLossOfControlInterfaces
+ */
 typedef struct android_obj_vtable_s {
     SLresult (*Realize)(void *self, SLboolean async);           /* 0 */
     SLresult (*Resume)(void *self, SLboolean async);            /* 1 */
     SLresult (*GetState)(void *self, SLuint32 *pState);         /* 2 */
-    void     (*Destroy)(void *self);                            /* 3 — Android */
-    SLresult (*SetPriority)(void *self, SLint32, SLboolean);    /* 4 */
-    SLresult (*GetPriority)(void *self, SLint32 *, SLboolean *);/* 5 */
-    SLresult (*SetLossOfControlInterfaces)(void *self, SLint16, SLInterfaceID *, SLboolean); /* 6 */
-    SLresult (*RegisterCallback)(void *self, slObjectCallback, void *); /* 7 */
-    void     (*AbortAsyncOperation)(void *self);                /* 8 */
-    SLresult (*GetInterface)(void *self, const SLInterfaceID, void *); /* 9 — Android */
+    SLresult (*GetInterface)(void *self, const SLInterfaceID, void *); /* 3 */
+    SLresult (*RegisterCallback)(void *self, slObjectCallback, void *); /* 4 */
+    void     (*AbortAsyncOperation)(void *self);                /* 5 */
+    void     (*Destroy)(void *self);                            /* 6 */
+    SLresult (*SetPriority)(void *self, SLint32, SLboolean);    /* 7 */
+    SLresult (*GetPriority)(void *self, SLint32 *, SLboolean *);/* 8 */
+    SLresult (*SetLossOfControlInterfaces)(void *self, SLint16, SLInterfaceID *, SLboolean); /* 9 */
 } android_obj_vtable_t;
 
 /* --- SLPlayItf (matches both Android NDK and VitaSDK slot ordering) ----- */
@@ -462,10 +473,10 @@ static void player_Destroy(void *self)
 
 static const android_obj_vtable_t g_player_obj_vtab = {
     common_Realize, common_Resume, common_GetState,
-    player_Destroy,                   /* slot 3 — Android ordering */
-    common_SetPriority, common_GetPriority, common_SetLossOfControl,
+    player_GetInterface,              /* slot 3 — standard */
     common_RegisterCallback, common_AbortAsync,
-    player_GetInterface,              /* slot 9 — Android ordering */
+    player_Destroy,                   /* slot 6 — standard */
+    common_SetPriority, common_GetPriority, common_SetLossOfControl,
 };
 
 /* =========================================================================
@@ -482,10 +493,10 @@ static void outmix_Destroy(void *self) { free((vita_outmix_t *)self); }
 
 static const android_obj_vtable_t g_outmix_obj_vtab = {
     common_Realize, common_Resume, common_GetState,
-    outmix_Destroy,
-    common_SetPriority, common_GetPriority, common_SetLossOfControl,
+    outmix_GetInterface,              /* slot 3 — standard */
     common_RegisterCallback, common_AbortAsync,
-    outmix_GetInterface,
+    outmix_Destroy,                   /* slot 6 — standard */
+    common_SetPriority, common_GetPriority, common_SetLossOfControl,
 };
 
 /* =========================================================================
@@ -632,10 +643,10 @@ static void engine_Destroy(void *self) { free((vita_engine_t *)self); }
 
 static const android_obj_vtable_t g_engine_obj_vtab = {
     common_Realize, common_Resume, common_GetState,
-    engine_Destroy,
-    common_SetPriority, common_GetPriority, common_SetLossOfControl,
+    engine_GetInterface,              /* slot 3 — standard */
     common_RegisterCallback, common_AbortAsync,
-    engine_GetInterface,
+    engine_Destroy,                   /* slot 6 — standard */
+    common_SetPriority, common_GetPriority, common_SetLossOfControl,
 };
 
 /* =========================================================================

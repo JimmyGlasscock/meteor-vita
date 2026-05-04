@@ -144,6 +144,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
                       vorbisfile
                       FLAC
                       jpeg
+                      png
                       stdc++
                       vitaGL
                       vitashark

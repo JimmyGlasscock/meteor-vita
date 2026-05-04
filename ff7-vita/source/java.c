@@ -45,6 +45,8 @@
 #include "utils/path_translate.h"
 #include "reimpl/ff7_se_player.h"
 
+#include <png.h>
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -191,6 +193,181 @@ static jlong mh_get_length(jmethodID id, va_list args) {
 /* MainActivity helpers                                               */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* MainActivity.ImageGetData/Width/Height                             */
+/*                                                                    */
+/* On Android, these load a PNG from APK resources and return the    */
+/* decoded pixel bytes as a byte[].  The native code calls           */
+/* GetByteArrayElements on the result and uploads it to a GL texture.*/
+/* Returning null from ImageGetData causes a null-deref on the next  */
+/* frame when the game tries to use the pixel pointer.               */
+/*                                                                    */
+/* We decode the PNG at first call and cache it so the three methods  */
+/* (Data/Width/Height) all hit the same loaded image.                */
+/* ------------------------------------------------------------------ */
+
+#define IMG_CACHE_SLOTS 4
+
+typedef struct {
+    char     name[256];
+    int      w, h;
+    uint8_t *pixels;   /* RGBA, w*h*4 bytes, heap-allocated */
+} img_cache_entry_t;
+
+static img_cache_entry_t s_img_cache[IMG_CACHE_SLOTS];
+static int               s_img_cache_count = 0;
+
+/* Load a PNG from the Vita filesystem into an RGBA pixel buffer.
+ * Returns heap-allocated pixels (must be freed by caller) or NULL. */
+static uint8_t *png_load_rgba(const char *path, int *out_w, int *out_h)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return NULL;
+
+    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+                                             NULL, NULL, NULL);
+    if (!png) { fclose(fp); return NULL; }
+
+    png_infop info = png_create_info_struct(png);
+    if (!info) { png_destroy_read_struct(&png, NULL, NULL); fclose(fp); return NULL; }
+
+    if (setjmp(png_jmpbuf(png))) {
+        png_destroy_read_struct(&png, &info, NULL);
+        fclose(fp);
+        return NULL;
+    }
+
+    png_init_io(png, fp);
+    png_read_info(png, info);
+
+    int width      = (int)png_get_image_width(png, info);
+    int height     = (int)png_get_image_height(png, info);
+    png_byte ctype = png_get_color_type(png, info);
+    png_byte depth = png_get_bit_depth(png, info);
+
+    /* Normalise everything to 8-bit RGBA */
+    if (depth == 16)
+        png_set_strip_16(png);
+    if (ctype == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png);
+    if (ctype == PNG_COLOR_TYPE_GRAY && depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png);
+    if (png_get_valid(png, info, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png);
+    if (ctype == PNG_COLOR_TYPE_RGB  ||
+        ctype == PNG_COLOR_TYPE_GRAY ||
+        ctype == PNG_COLOR_TYPE_PALETTE)
+        png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
+    if (ctype == PNG_COLOR_TYPE_GRAY ||
+        ctype == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png);
+    png_read_update_info(png, info);
+
+    uint8_t *pixels = (uint8_t *)malloc((size_t)(width * height * 4));
+    if (!pixels) {
+        png_destroy_read_struct(&png, &info, NULL);
+        fclose(fp);
+        return NULL;
+    }
+
+    png_bytep *rows = (png_bytep *)malloc((size_t)height * sizeof(png_bytep));
+    if (!rows) {
+        free(pixels);
+        png_destroy_read_struct(&png, &info, NULL);
+        fclose(fp);
+        return NULL;
+    }
+    for (int y = 0; y < height; y++)
+        rows[y] = pixels + y * width * 4;
+
+    png_read_image(png, rows);
+    free(rows);
+    png_destroy_read_struct(&png, &info, NULL);
+    fclose(fp);
+
+    *out_w = width;
+    *out_h = height;
+    return pixels;
+}
+
+/* Return the cache entry for 'name', loading it from disk if needed. */
+static img_cache_entry_t *img_cache_get(const char *name)
+{
+    /* Search existing cache */
+    for (int i = 0; i < s_img_cache_count; i++) {
+        if (strcmp(s_img_cache[i].name, name) == 0)
+            return &s_img_cache[i];
+    }
+
+    /* Not found: resolve path and decode */
+    char path[512];
+    path_translate_asset(name, path, sizeof(path));
+
+    int w = 0, h = 0;
+    uint8_t *px = png_load_rgba(path, &w, &h);
+
+    ff7_boot_log("[JNI] ImageLoad(\"%s\") -> %s (%dx%d)",
+                 path, px ? "ok" : "FAILED", w, h);
+
+    /* Pick a slot (simple ring; evict oldest if full) */
+    int slot = s_img_cache_count < IMG_CACHE_SLOTS
+               ? s_img_cache_count++
+               : 0;  /* overwrite slot 0 on overflow */
+
+    if (s_img_cache[slot].pixels) {
+        free(s_img_cache[slot].pixels);
+        s_img_cache[slot].pixels = NULL;
+    }
+
+    strncpy(s_img_cache[slot].name, name, sizeof(s_img_cache[slot].name) - 1);
+    s_img_cache[slot].name[sizeof(s_img_cache[slot].name) - 1] = '\0';
+    s_img_cache[slot].w      = w;
+    s_img_cache[slot].h      = h;
+    s_img_cache[slot].pixels = px;  /* may be NULL if decode failed */
+    return &s_img_cache[slot];
+}
+
+static jobject mh_image_get_data(jmethodID id, va_list args) {
+    (void)id;
+    jstring name = va_arg(args, jstring);
+    const char *raw = jstr_cstr(name);
+
+    img_cache_entry_t *e = img_cache_get(raw);
+    if (!e || !e->pixels || e->w <= 0 || e->h <= 0) {
+        ff7_boot_log("[JNI] ImageGetData(\"%s\"): FAILED (no pixels)", raw);
+        /* Return an empty 1x1 RGBA array rather than null to prevent
+         * a null-deref crash when the game calls GetByteArrayElements. */
+        jbyteArray arr = jni->NewByteArray(&jni, 4);
+        static const jbyte transparent[4] = { 0, 0, 0, 0 };
+        jni->SetByteArrayRegion(&jni, arr, 0, 4, transparent);
+        return (jobject)arr;
+    }
+
+    int size = e->w * e->h * 4;
+    jbyteArray arr = jni->NewByteArray(&jni, size);
+    jni->SetByteArrayRegion(&jni, arr, 0, size, (const jbyte *)e->pixels);
+    ff7_boot_log("[JNI] ImageGetData(\"%s\"): %d bytes (%dx%d)", raw, size, e->w, e->h);
+    return (jobject)arr;
+}
+
+static jint mh_image_get_width(jmethodID id, va_list args) {
+    (void)id;
+    jstring name = va_arg(args, jstring);
+    img_cache_entry_t *e = img_cache_get(jstr_cstr(name));
+    return e ? (jint)e->w : 0;
+}
+
+static jint mh_image_get_height(jmethodID id, va_list args) {
+    (void)id;
+    jstring name = va_arg(args, jstring);
+    img_cache_entry_t *e = img_cache_get(jstr_cstr(name));
+    return e ? (jint)e->h : 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* MainActivity helpers                                               */
+/* ------------------------------------------------------------------ */
+
 static void mh_cloud_launch(jmethodID id, va_list args) {
     (void)id; (void)args;
     /* The Android version forks a "cloud" companion activity; on Vita we
@@ -215,35 +392,6 @@ static void mh_post_delete_save_file(jmethodID id, va_list args) {
     jint slot = va_arg(args, jint);
     ff7_boot_log("[JNI] postDeleteSaveFile(%d): ignored", (int)slot);
 }
-
-static jobject mh_image_get_data(jmethodID id, va_list args) {
-    (void)id;
-    jstring name = va_arg(args, jstring);
-    /* Returning null tells native code the image was not loadable; the catch
-     * block in MainActivity.ImageGetData already maps IOException to null,
-     * so the caller is required to handle it. Phase 4 will plug in real
-     * decoding via libpng / stbi. */
-    ff7_boot_log("[JNI] ImageGetData(\"%s\"): stub null", jstr_cstr(name));
-    return NULL;
-}
-
-static jint mh_image_get_width(jmethodID id, va_list args) {
-    (void)id;
-    jstring name = va_arg(args, jstring);
-    ff7_boot_log("[JNI] ImageGetWidth(\"%s\"): stub 0", jstr_cstr(name));
-    return 0;
-}
-
-static jint mh_image_get_height(jmethodID id, va_list args) {
-    (void)id;
-    jstring name = va_arg(args, jstring);
-    ff7_boot_log("[JNI] ImageGetHeight(\"%s\"): stub 0", jstr_cstr(name));
-    return 0;
-}
-
-/* ------------------------------------------------------------------ */
-/* SEPlayer (sound effects)                                           */
-/* ------------------------------------------------------------------ */
 
 static void mh_se_play(jmethodID id, va_list args) {
     (void)id;

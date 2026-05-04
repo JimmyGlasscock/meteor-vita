@@ -102,6 +102,8 @@ add_executable(${CMAKE_PROJECT_NAME}
                source/reimpl/ff7_video_player.c
                source/reimpl/ff7_input_hooks.c
                source/reimpl/ff7_se_player.c
+               source/reimpl/ff7_opensl_impl.c
+               source/reimpl/ff7_android_config.c
                source/utils/dialog.c
                source/utils/ff7_boot_log.c
                source/utils/glutil.c

@@ -61,6 +61,8 @@
 #include "reimpl/time64.h"
 #include "reimpl/asset_manager.h"
 #include "reimpl/gles_dynlib_wrappers.h"
+#include "reimpl/ff7_opensl_impl.h"
+#include "reimpl/ff7_android_config.h"
 
 const unsigned int __page_size = PAGE_SIZE;
 
@@ -271,6 +273,46 @@ so_default_dynlib default_dynlib[] = {
         { "ANativeWindow_setBuffersGeometry", (uintptr_t)&ANativeWindow_setBuffersGeometry },
         { "ANativeWindow_lock",               (uintptr_t)&ANativeWindow_lock               },
         { "ANativeWindow_unlockAndPost",      (uintptr_t)&ANativeWindow_unlockAndPost      },
+
+        // AConfiguration (libandroid.so) — returns plausible Vita defaults (EN-US, landscape, HDPI)
+        { "AConfiguration_new",              (uintptr_t)&AConfiguration_new              },
+        { "AConfiguration_delete",           (uintptr_t)&AConfiguration_delete           },
+        { "AConfiguration_fromAssetManager", (uintptr_t)&AConfiguration_fromAssetManager },
+        { "AConfiguration_copy",             (uintptr_t)&AConfiguration_copy             },
+        { "AConfiguration_diff",             (uintptr_t)&AConfiguration_diff             },
+        { "AConfiguration_match",            (uintptr_t)&AConfiguration_match            },
+        { "AConfiguration_isBetterThan",     (uintptr_t)&AConfiguration_isBetterThan     },
+        { "AConfiguration_getLanguage",      (uintptr_t)&AConfiguration_getLanguage      },
+        { "AConfiguration_setLanguage",      (uintptr_t)&AConfiguration_setLanguage      },
+        { "AConfiguration_getCountry",       (uintptr_t)&AConfiguration_getCountry       },
+        { "AConfiguration_setCountry",       (uintptr_t)&AConfiguration_setCountry       },
+        { "AConfiguration_getOrientation",   (uintptr_t)&AConfiguration_getOrientation   },
+        { "AConfiguration_setOrientation",   (uintptr_t)&AConfiguration_setOrientation   },
+        { "AConfiguration_getKeyboard",      (uintptr_t)&AConfiguration_getKeyboard      },
+        { "AConfiguration_setKeyboard",      (uintptr_t)&AConfiguration_setKeyboard      },
+        { "AConfiguration_getNavigation",    (uintptr_t)&AConfiguration_getNavigation    },
+        { "AConfiguration_setNavigation",    (uintptr_t)&AConfiguration_setNavigation    },
+        { "AConfiguration_getScreenSize",    (uintptr_t)&AConfiguration_getScreenSize    },
+        { "AConfiguration_setScreenSize",    (uintptr_t)&AConfiguration_setScreenSize    },
+        { "AConfiguration_getScreenLong",    (uintptr_t)&AConfiguration_getScreenLong    },
+        { "AConfiguration_setScreenLong",    (uintptr_t)&AConfiguration_setScreenLong    },
+        { "AConfiguration_getDensity",       (uintptr_t)&AConfiguration_getDensity       },
+        { "AConfiguration_setDensity",       (uintptr_t)&AConfiguration_setDensity       },
+        { "AConfiguration_getTouchscreen",   (uintptr_t)&AConfiguration_getTouchscreen   },
+        { "AConfiguration_setTouchscreen",   (uintptr_t)&AConfiguration_setTouchscreen   },
+        { "AConfiguration_getSdkVersion",    (uintptr_t)&AConfiguration_getSdkVersion    },
+        { "AConfiguration_setSdkVersion",    (uintptr_t)&AConfiguration_setSdkVersion    },
+
+        // ALooper (libandroid.so) — stubs; FF7 drives its loop from Java GLSurfaceView
+        { "ALooper_forThread",  (uintptr_t)&ALooper_forThread  },
+        { "ALooper_prepare",    (uintptr_t)&ALooper_prepare    },
+        { "ALooper_acquire",    (uintptr_t)&ALooper_acquire    },
+        { "ALooper_release",    (uintptr_t)&ALooper_release    },
+        { "ALooper_wake",       (uintptr_t)&ALooper_wake       },
+        { "ALooper_pollAll",    (uintptr_t)&ALooper_pollAll    },
+        { "ALooper_pollOnce",   (uintptr_t)&ALooper_pollOnce   },
+        { "ALooper_addFd",      (uintptr_t)&ALooper_addFd      },
+        { "ALooper_removeFd",   (uintptr_t)&ALooper_removeFd   },
 
 
         // Math
@@ -842,7 +884,10 @@ so_default_dynlib default_dynlib[] = {
         { "SL_IID_VIRTUALIZER", (uintptr_t)&SL_IID_VIRTUALIZER },
         { "SL_IID_VISUALIZATION", (uintptr_t)&SL_IID_VISUALIZATION },
         { "SL_IID_VOLUME", (uintptr_t)&SL_IID_VOLUME },
-        { "slCreateEngine", (uintptr_t)&slCreateEngine },
+        // slCreateEngine: use our reimplementation — VitaSDK's SLObjectItf_ vtable ordering
+        // differs from Android NDK (GetInterface@3 vs @9, Destroy@6 vs @3), which would
+        // cause the game to call the wrong function pointers and crash on first SL call.
+        { "slCreateEngine", (uintptr_t)&slCreateEngine_vita },
 
 
         // Pthread

@@ -15,8 +15,8 @@ Companion to [`FF7-Port-Plan.md`](./FF7-Port-Plan.md). This document audits all 
 | `libGLESv2.so` | **Complete** — wrappers wired; proc addresses resolved at runtime |
 | `libc.so` | **Complete** — `lseek64` implemented |
 | `libdl.so` | **Sufficient** — limited by design |
-| `libandroid.so` | **Complete** — AAssetManager done; ANativeWindow stubs added |
-| `libOpenSLES.so` | **Complete** — symbol table present; SEPlayer wired to SceAudio |
+| `libandroid.so` | **Complete** — AAssetManager + ANativeWindow + AConfiguration + ALooper all wired |
+| `libOpenSLES.so` | **Complete** — full custom reimpl (SceAudio backend, Android-ordered vtables) |
 
 ---
 
@@ -154,7 +154,7 @@ The `.so` may use `dlsym` to probe for optional symbols at runtime. Any symbol i
 
 ## 8. `libandroid.so` — Android NDK native APIs
 
-**Status: Partial. AAssetManager complete; ANativeWindow status unknown.**
+**Status: Complete.**
 
 ### Implemented
 
@@ -162,141 +162,68 @@ The `.so` may use `dlsym` to probe for optional symbols at runtime. Any symbol i
 |-----------|---------|----------------|
 | `AAssetManager` | `AAssetManager_fromJava`, `AAssetManager_open`, `AAssetManager_openDir` | `source/reimpl/asset_manager.cpp` + dynlib.c |
 | `AAsset` | `AAsset_close/read/seek/getLength/getRemainingLength/openFileDescriptor/openFileDescriptor64` | Same |
-| `AAssetDir` | `AAssetDir_close`, `AAssetDir_getNextFileName` | Stub (logs error, returns empty) |
+| `AAssetDir` | `AAssetDir_close`, `AAssetDir_getNextFileName` | Stub |
+| `ANativeWindow` | all 8 `ANativeWindow_*` symbols | `source/reimpl/sys.c` — returns Vita screen dims (960×544, RGBA_8888) |
+| `AConfiguration` | 22 `AConfiguration_*` symbols | `source/reimpl/ff7_android_config.c` — returns en-US / landscape / HDPI defaults |
+| `ALooper` | 9 `ALooper_*` symbols | `source/reimpl/ff7_android_config.c` — no-op stubs; game uses Java input |
 
-### Unverified / possibly missing
-
-`libandroid.so` also exports the `ANativeWindow_*` surface API. FF7 Android uses `GLSurfaceView` (a Java-side object) rather than `NativeActivity`, so native code likely never calls `ANativeWindow_*` directly. However, this has not been confirmed by inspection of the binary.
-
-| Symbol group | dynlib.c entry | Risk |
-|---|---|---|
-| `ANativeWindow_acquire/release` | Not present | Low — Java-managed surface |
-| `ANativeWindow_lock/unlockAndPost` | Not present | Low |
-| `ANativeWindow_setBuffersGeometry` | Not present | Low |
-| `ANativeWindow_getWidth/getHeight/getFormat` | Not present | Low |
-| `ALooper_*` / `AInputQueue_*` | Not present | Very low — game uses Java input callbacks |
-
-### Plan
-
-1. **Verify** with `objdump -d libjni_ff7.so | grep ANativeWindow` (or Ghidra's import list) whether any `ANativeWindow_*` symbols appear. If none → confirmed not needed.
-2. If any are present: add stubs in a new `source/reimpl/android_native_window.c`:
-
-```c
-// Minimal stubs — return success; Vita's window is managed by VitaGL.
-int ANativeWindow_acquire(void *win)               { return 0; }
-void ANativeWindow_release(void *win)              {}
-int ANativeWindow_getWidth(void *win)              { return 960; }
-int ANativeWindow_getHeight(void *win)             { return 544; }
-int ANativeWindow_setBuffersGeometry(void *win, int w, int h, int fmt) { return 0; }
-```
+**No action required.**
 
 ---
 
 ## 9. `libOpenSLES.so` — Audio
 
-**Status: Partial. Symbol table complete; audio path not tested.**
+**Status: Complete.**
 
-All `SL_IID_*` interface UUID constants and `slCreateEngine` are mapped in `dynlib.c`. The library is linked via `-lOpenSLES` in `CMakeLists.txt`. If `libjni_ff7.so` uses the OpenSL ES C API directly (engine → output mix → player → buffer queue), those calls will reach VitaSDK's own OpenSL ES implementation through the symbol table entries.
+VitaSDK's own OpenSL ES implementation **cannot be used directly** because its `SLObjectItf_` vtable has a different slot ordering than Android NDK's (Destroy@slot3 vs GetInterface@slot3, GetInterface@slot9 vs Destroy@slot6). Using it would cause the game to call the wrong vtable slots and crash immediately.
 
-### What is still stubbed
+A complete custom reimplementation is in `source/reimpl/ff7_opensl_impl.c`:
 
-The JNI-side audio helpers in `java.c` are stubs:
-- `SEPlayer.PLAY(int id)` — logs and returns
-- `SEPlayer.SETVOLUME(float v)` — logs and returns
+| Feature | Detail |
+|---------|--------|
+| `slCreateEngine_vita` | Replaces `slCreateEngine` in dynlib.c |
+| `SLObjectItf` vtable | Android NDK slot ordering (Destroy@3, GetInterface@9) |
+| `SLEngineItf` | `CreateAudioPlayer`, `CreateOutputMix` fully implemented |
+| `SLPlayItf` | `SetPlayState/GetPlayState` and all 12 methods |
+| `SLVolumeItf` | Volume mapped to `sceAudioOutSetVolume` in millibels |
+| `SLAndroidSimpleBufferQueueItf` | `Enqueue/Clear/GetState/RegisterCallback` — 4-slot ring buffer |
+| Audio backend | `SceAudio` BGM port (falls back to VOICE if BGM exhausted) |
+| Streaming | Per-player background thread drains queue in 512-sample grains |
+| Format support | Any `SLDataFormat_PCM` sample rate, mono→stereo expansion |
 
-If the game's sound effect engine is implemented as Java calling into native C++ via JNI (i.e., native code creates OpenSL ES objects on first `PLAY` call), the stubs will silently suppress all sound.
+Sound effects through the Java `SEPlayer` bridge are handled separately by `source/reimpl/ff7_se_player.c`.
 
-If the game's audio is entirely native (OpenSL ES engine init happens in `JNI_OnLoad` or `onSurfaceCreated`, with `SEPlayer.PLAY` just triggering playback of an already-loaded buffer), audio may work without touching those stubs.
-
-### Plan
-
-**After the game reaches a running frame (Phase 5 complete):**
-
-1. Check the boot log for any OpenSL ES failure codes. `slCreateEngine` returning `SL_RESULT_SUCCESS` is the first gate.
-2. Use Ghidra to trace what `Java_..._GLESJniWrapper_onSurfaceCreated` does — does it call `slCreateEngine`? Does it create a buffer-queue player? If yes, audio is all-native and may already work.
-3. If audio is silent after the game loads, add `ff7_boot_log` calls to the `SEPlayer` JNI handlers and confirm whether `PLAY` is ever invoked.
-4. If `PLAY` is invoked but silent: implement a minimal Vita audio thread in a new `source/reimpl/ff7_se_player.c`:
-   - On init: load `audio.fmt` + `audio.dat` from `DATA_PATH/ff7_1.02/data/sound/` into memory.
-   - On `PLAY(id)`: look up the PCM entry by ID, submit it to `sceAudio*` or an OpenSL ES buffer queue.
-   - On `SETVOLUME(v)`: pass to the volume interface.
+**No action required.**
 
 ---
 
-## 10. Files written but not yet compiled into the build
+## 10. Build completeness check
 
-Several source files exist in `source/reimpl/` that are **not listed in `CMakeLists.txt`** and therefore not compiled. Each needs to be added along with any missing linked libraries.
+All source files are compiled and all libraries are linked. This section is a record of what was wired and when.
 
-| File | Purpose | Missing from CMake | Extra libs needed |
-|------|---------|--------------------|-------------------|
-| `source/reimpl/gles_dynlib_wrappers.c` | `vglGetProcAddress` wrappers for rarely-exported GL funcs | Yes | None |
-| `source/reimpl/ff7_gl_movie_tex.c` | Uploads RGBA frame to GL texture (used by both video players) | Yes | None |
-| `source/reimpl/ff7_avi_player.c` | RIFF/AVI + MJPEG decoder for FMV playback | Yes | `jpeg` |
-| `source/reimpl/ff7_video_player.c` | `SceAvPlayer` MP4 decoder for FMV playback | Yes | `SceAvPlayer_stub`, `SceSysmodule_stub` |
-| `source/reimpl/ff7_input_hooks.c` | `fw_GetAsyncKeyState` + DirectInput `GetDeviceState` hooks | Yes | None |
-
-### Plan — add to `CMakeLists.txt`
-
-```cmake
-# In add_executable(...):
-source/reimpl/gles_dynlib_wrappers.c
-source/reimpl/ff7_gl_movie_tex.c
-source/reimpl/ff7_avi_player.c
-source/reimpl/ff7_video_player.c
-source/reimpl/ff7_input_hooks.c
-
-# In target_link_libraries(...):
-jpeg
-SceAvPlayer_stub
-SceSysmodule_stub
-```
-
-### Plan — wire the hooks in `patch.c`
-
-`ff7_input_hooks.c` is written but `patch.c` never calls `hook_addr()`. Once the `.so` is loaded and the symbol addresses for `fw_GetAsyncKeyState` and the DirectInput vtable's `GetDeviceState` slot are found via Ghidra:
-
-```c
-#include "reimpl/ff7_input_hooks.h"
-
-void so_patch(void) {
-    // Replace fw_GetAsyncKeyState with our pad-aware version.
-    // Address must be found from libjni_ff7.so symbol table or Ghidra.
-    uintptr_t gak_addr = so_symbol(&so_mod, "fw_GetAsyncKeyState");
-    if (gak_addr) {
-        ff7_gak_hook = hook_addr(gak_addr, (uintptr_t)&ff7_GetAsyncKeyState_hook);
-    }
-
-    // Replace IDirectInputDevice::GetDeviceState (vtable slot 9 or by symbol).
-    uintptr_t gds_addr = so_symbol(&so_mod, "_ZN...GetDeviceState...");
-    if (gds_addr) {
-        ff7_gds_hook = hook_addr(gds_addr, (uintptr_t)&ff7_GetDeviceState_hook);
-    }
-}
-```
-
-### Plan — wire the video player from `java.c`
-
-`MyDecoder.START` currently returns 0 to skip all FMVs. Once the video files are confirmed playable:
-
-1. Choose one backend (recommend `ff7_video_player` using `SceAvPlayer` for MP4, or `ff7_avi_player` for the original AVI/MJPEG files if MP4 conversion is not desired).
-2. Wire `mh_dec_start` to call `ff7_video_open(path)` (path translation applies).
-3. Wire `mh_dec_frame` to call `ff7_avi_next_frame(tex)` or `ff7_video_next_frame(tex)`.
-4. Wire `mh_dec_reset / mh_dec_set_position / mh_dec_get_position / mh_dec_get_totaltime` to the corresponding player API.
-5. Call `ff7_video_init()` (loads `SceAvPlayer` sysmodule) from `soloader_init_all()` if using the SceAvPlayer backend.
+| File | Status | Notes |
+|------|--------|-------|
+| `source/reimpl/gles_dynlib_wrappers.c` | **Compiled** — in CMakeLists | `gles_dynlib_wrappers_init()` called from `init.c`; dynlib.c entries updated to `so_gl*` |
+| `source/reimpl/ff7_gl_movie_tex.c` | **Compiled** — in CMakeLists | Used by both video backends |
+| `source/reimpl/ff7_avi_player.c` | **Compiled** — in CMakeLists | `jpeg` linked |
+| `source/reimpl/ff7_video_player.c` | **Compiled** — in CMakeLists | `SceAvPlayer_stub`, `SceSysmodule_stub` linked |
+| `source/reimpl/ff7_input_hooks.c` | **Compiled** — in CMakeLists | Hooks **not yet registered** in `patch.c` (needs Ghidra addresses) |
+| `source/reimpl/ff7_se_player.c` | **Compiled** — in CMakeLists | `ff7_se_player_init()` called from `init.c`; `java.c` wired |
+| `source/reimpl/ff7_opensl_impl.c` | **Compiled** — in CMakeLists | `slCreateEngine_vita` wired in `dynlib.c` |
+| `source/reimpl/ff7_android_config.c` | **Compiled** — in CMakeLists | All `AConfiguration_*` and `ALooper_*` wired in `dynlib.c` |
 
 ---
 
-## Summary of outstanding actions (priority order)
+## 11. Remaining work (post-dependency, port phases)
 
-All native dependency gaps have been resolved. Remaining work is runtime validation:
+The nine native dependencies are fully resolved. All outstanding items are higher-level porting tasks:
 
-| Priority | Action | File(s) |
-|----------|--------|---------|
-| 1 | Deploy to device; check boot log for unresolved imports | (runtime) |
-| 2 | Verify `audio.fmt` count + `entry[0]` log matches actual file layout | (runtime log) |
-| 3 | If `audio.fmt` format differs: adjust `ff7_se_player.c` struct parser | `source/reimpl/ff7_se_player.c` |
-| 4 | Confirm no `ANativeWindow_*` calls appear in boot log | (runtime log) |
-| 5 | Wire `patch.c` input hooks once symbol addresses known from Ghidra | `source/patch.c` |
-| 6 | Wire video player into `java.c` `MyDecoder` handlers (Phase 6) | `source/java.c` |
+| Priority | Item | Detail | File(s) |
+|----------|------|--------|---------|
+| 1 | **Runtime boot test** | Deploy VPK; check log for unresolved symbols or early crash | (device) |
+| 2 | **`patch.c` input hooks** | `ff7_input_hooks.c` is compiled but `hook_addr()` is never called. Needs Ghidra to find `fw_GetAsyncKeyState` and DirectInput vtable addresses in `libjni_ff7.so` | `source/patch.c` |
+| 3 | **Video player wiring** | `MyDecoder.START/FRAME` in `java.c` return 0 (skip all FMVs). Wire to `ff7_video_player.c` or `ff7_avi_player.c` once boot is stable | `source/java.c` |
+| 4 | **`audio.fmt` layout validation** | Confirm the `SEPlayer` PCM struct parser matches the actual file; adjust if count/offset log looks wrong | `source/reimpl/ff7_se_player.c` |
 
 ---
 

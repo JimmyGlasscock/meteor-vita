@@ -1,0 +1,21 @@
+CMakeFiles/so_loader.dir/source/reimpl/gles_dynlib_wrappers.c.obj: \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/source/reimpl/gles_dynlib_wrappers.c \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/source/reimpl/gles_dynlib_wrappers.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/vitaGL.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/vitashark.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2/shacccg.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/vitasdk/build_utils.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2/types.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2common/types.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include/stddef.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include/stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/machine/_default_types.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/features.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/_newlib_version.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/bits/posix_opt.h \
+ /usr/local/vitasdk/lib/gcc/arm-vita-eabi/10.3.0/include-fixed/limits.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/_intsup.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/sys/_stdint.h \
+ /usr/local/vitasdk/arm-vita-eabi/include/psp2/gxm.h \
+ /Users/jimmyglasscock/Documents/meteor-vita/ff7-vita/source/utils/ff7_boot_log.h
